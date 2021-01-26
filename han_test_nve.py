@@ -1,4 +1,27 @@
+current_version = 'v2.13'
+### Revision history
+### ---------- -------------         ------------------------------------------
+### 2020-12-07 jaws         - v2    - Added rudimentary exception handling
+### 2020-12-07 jaws         - v2.1  - Adding logging of ringbuffer
+### 2020-12-07 jaws         - v2.11 - Fixed a bug in log_ringbuffer
+### 2020-12-07 jaws         - v2.12 - Removed finally-clause which caused all log files to close.
+### 2020-12-07 jaws         - v2.13 - added newline to logfile output
+
+### ----------------------------------------------------------------------------
+
+import sys
+for a in sys.argv:
+    if a == '--version':
+        print("VERSION: " + current_version)
+        exit(0)
+    if a == '--help':
+        print("--help")
+        print("--version")
+        exit(0)
+
+
 # python -m serial.tools.list_ports -v
+print("Hafslund&Elvia HAN tester version: " + current_version)
 import serial
 
 import time
@@ -67,10 +90,11 @@ list3_string_6515 = [
     0x7e
 ]
 
-list2_file = open('list2.txt', 'a')
-list3_file = open('list3.txt', 'a')
-list1_file = open('list1.txt', 'a')
-log_file = open('rawlog.txt', 'a')
+list2_file     = open('list2.txt', 'a')
+list3_file     = open('list3.txt', 'a')
+list1_file     = open('list1.txt', 'a')
+log_file       = open('rawlog.txt', 'a')
+ringbuffer_log = open('ringbuffer.txt', 'a')
 
 obis = {
     '1.0.1.7.0.255.': 'Active power+(Q1+Q4)',
@@ -123,7 +147,7 @@ def printable(byte_data):
     return outs
 
 
-def simple_print_byte_array(byte_data):
+def get_simple_print_byte_array(byte_data):
     outs = ''
     ix = 0
     while ix < len(byte_data):
@@ -132,7 +156,11 @@ def simple_print_byte_array(byte_data):
             s += "\n"
         outs += s
         ix += 1
-    print outs
+    return outs
+
+def simple_print_byte_array(byte_data):
+    outs = get_simple_print_byte_array(byte_data)
+    print(outs)
     return outs
 
 
@@ -159,21 +187,29 @@ def print_byte_array(byte_data):
     return outs
 
 
+# print("importing SERIAL")
 import serial.tools.list_ports as lp
 
-comport = ''
+comport = 'No com port found'
 for sp in lp.comports():
-    print sp.description
+    # print(sp.description)
+    # print(sp)
     if sp.description.startswith('USB'):
         comport = sp.device
         break
 
-serialPort = serial.Serial(comport, 2400, timeout=2, parity=serial.PARITY_EVEN)
-print "Serial port created:"
-print serialPort
+print("comport: " +comport)
+serialPort = None
+try:
+    serialPort = serial.Serial(comport, 2400, timeout=2, parity=serial.PARITY_EVEN)
+    print("Serial port created:")
+    print(serialPort)
 
-serialPort.reset_input_buffer()
-serialString = ""
+    serialPort.reset_input_buffer()
+    serialString = ""
+except:
+    print("Fant ingen com port.\nAvslutter.\n\n Ha det bra.")
+    exit(0)
 
 
 def find_start(byte_data):
@@ -238,7 +274,7 @@ def extract_next_message(byte_data):
     # print "extracting the next message"
     retval = []
     if (byte_data[0] == 0x7e and byte_data[1] != 0x7e):
-        print "."
+        print(".")
         # throwing = byte_data.pop(0)
         # print "Throwing 0x%02x" % (throwing)
     else:
@@ -254,7 +290,7 @@ def extract_next_message(byte_data):
 
         retval.append(the_byte)
 
-    print "Extracted message length: %d" % len(retval)
+    print("Extracted message length: %d" % len(retval))
 
     return retval
 
@@ -316,7 +352,7 @@ def parse_spec(spec, byte_data):
             addr_field = byte_data[current_ix]
             length_field = byte_data[current_ix + 1]
             length_string = "addr: 0x%02x - length: 0x%02x/%d" % (addr_field, length_field, length_field)
-            print length_string
+            print(length_string)
             s = 2
             the_string = append0x(the_string, current_ix, s, byte_data)
             current_ix += s
@@ -369,9 +405,9 @@ def parse_spec(spec, byte_data):
 
 
 def list3(byte_data):
-    print "list3"
-    print "lenght: %d" % (len(byte_data))
-    print get_now()
+    print("list3")
+    print("lenght: %d" % (len(byte_data)))
+    print(get_now())
 
     spec = [
         1, 'h', 1, 2, 1, 2, 3, '\n',
@@ -424,13 +460,13 @@ def list3(byte_data):
     total_string = parse_spec(spec, byte_data)
     list3_file.write(get_now())
     list3_file.write(total_string)
-    print total_string
+    print(total_string)
     return total_string
 
 
 def list2(byte_data):
-    print '---------'
-    print get_now()
+    print('---------')
+    print(get_now())
 
     spec = [
         1, 'h', 1, 2, 1, 2, 3, '\n',
@@ -470,13 +506,13 @@ def list2(byte_data):
     total_string = parse_spec(spec, byte_data)
     list2_file.write(get_now())
     list2_file.write(total_string)
-    print total_string
+    print(total_string)
     return total_string
 
 
 def list1(byte_data):
-    print '---------'
-    print get_now()
+    print('---------')
+    print(get_now())
     spec = [
         1, 'h', 1, 2, 1, 2, 3, '\n',
         1, 4, 1, '\n',
@@ -488,9 +524,15 @@ def list1(byte_data):
     the_string = parse_spec(spec, byte_data)
     list1_file.write(get_now())
     list1_file.write(the_string)
-    print the_string
+    print(the_string)
     return the_string
 
+
+def log_ringbuffer(buf):
+    ringbuffer_log.write(get_now())
+    ringbuffer_log.write("\n")
+    ringbuffer_log.write(get_simple_print_byte_array(buf))
+    ringbuffer_log.write("\n")
 
 # list3(list3_string_6525)
 # list3(list3_string_6515)
@@ -500,30 +542,54 @@ def list1(byte_data):
 ix = 0
 ringbuffer = []
 
+
+log_file.write(get_now())
+log_file.write("\n")
+log_file.write("Hafslund&Elvia HAN tester version: " + current_version)
+log_file.write("\n")
 while (1):
     ix += 1
     s = "sleeping %d \r" % ix
-    print s,
+    print(s, end=' ')
     time.sleep(1)
     ix += 1
     if (serialPort.in_waiting > 0):
         data = read_bytes(serialPort.in_waiting)
         ringbuffer.extend(data)
+        log_ringbuffer(ringbuffer)
+        
 
-        while contains_full_message(ringbuffer):
-            next_message = extract_next_message(ringbuffer)
 
-            raw_data = simple_print_byte_array(next_message)
-            list = ''
-            if len(next_message) > 300:
-                list = list3(next_message)
-            elif len(next_message) > 100:
-                list = list2(next_message)
-            elif len(next_message) > 40:
-                list = list1(next_message)
+        try:
+            while contains_full_message(ringbuffer):
+                next_message = extract_next_message(ringbuffer)
 
-            log_file.write(get_now())
-            log_file.write(raw_data)
-            log_file.write(list)
+                raw_data = simple_print_byte_array(next_message)
+                list = ''
+                if len(next_message) > 300:
+                    list = list3(next_message)
+                elif len(next_message) > 100:
+                    list = list2(next_message)
+                elif len(next_message) > 40:
+                    list = list1(next_message)
 
-        print "\n"
+                log_file.write(get_now())
+                log_file.write(raw_data)
+                log_file.write(list)
+        except Exception as inst:
+            print("handle Exception")
+            print(type(inst))    # the exception instance
+            print(inst.args)     # arguments stored in .args
+            print(inst)          # __str__ allows args to be printed directly,
+                                # but may be overridden in exception subclasses
+            
+            print('-----')        
+            print("oooooooooooooops")
+            print(ringbuffer)
+            log_file.write("Exception in main while loop")
+            log_file.write(type(inst))
+            log_file.write(inst.args)
+            log_file.write(inst)
+
+
+        print("\n")
