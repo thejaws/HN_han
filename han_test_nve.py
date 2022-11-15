@@ -1,4 +1,14 @@
-current_version = 'v2.13'
+"""HAN port tester."""
+import datetime
+import string
+import sys
+import time
+
+import serial
+import serial.tools.list_ports as lp
+
+CURRENT_VERSION = 'v2.14 - 2022-11-15'
+
 ### Revision history
 ### ---------- -------------         ------------------------------------------
 ### 2020-12-07 jaws         - v2    - Added rudimentary exception handling
@@ -6,28 +16,24 @@ current_version = 'v2.13'
 ### 2020-12-07 jaws         - v2.11 - Fixed a bug in log_ringbuffer
 ### 2020-12-07 jaws         - v2.12 - Removed finally-clause which caused all log files to close.
 ### 2020-12-07 jaws         - v2.13 - added newline to logfile output
+### 2022-12-15 jaws         - v2.14 - Fixing linting warnings while trying to add UL3 decoding output
+
+# python -m serial.tools.list_ports -v
 
 ### ----------------------------------------------------------------------------
 
-import sys
+# import binascii
+
 for a in sys.argv:
-    if a == '--version':
-        print("VERSION: " + current_version)
-        exit(0)
     if a == '--help':
         print("--help")
         print("--version")
         exit(0)
 
-
-# python -m serial.tools.list_ports -v
-print("Hafslund&Elvia HAN tester version: " + current_version)
-import serial
-
-import time
-import datetime
-import string
-import binascii
+    elif a == '--version':
+        print(f"VERSION: {CURRENT_VERSION}")
+        exit(0)
+print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
 
 # example list 3 for 6525
 list3_string_6525 = [0x7e, 0xa1, 0x77, 0x41, 0x08, 0x83, 0x13, 0x39, 0x1e, 0xe6, 0xe7, 0x00, 0x0f, 0x40, 0x00, 0x00,
@@ -116,18 +122,17 @@ obis = {
 }
 
 
-def oct2Obis(oct):
+def oct_2_obis(oct):
     return obis.get(oct, 'Unknown')
 
 
 def get_now():
-    return "%s" % [datetime.datetime.now().strftime("%a, %d %B %Y %H:%M:%S")]
+    return f'{[datetime.datetime.now().strftime("%a, %d %B %Y %H:%M:%S")]}'
 
 
 def printable(byte_data):
-    ix = 0
     outs = "%03d :" % 0
-    while ix < len(byte_data):
+    for ix in range(len(byte_data)):
         pcand = chr(byte_data[ix])
         p = ' '
         if pcand in string.printable:
@@ -143,19 +148,16 @@ def printable(byte_data):
         if (ix + 1) % 30 == 0:  # and ix < len(byte_data) - 10:
             s += "\n"
         outs += s
-        ix += 1
     return outs
 
 
 def get_simple_print_byte_array(byte_data):
     outs = ''
-    ix = 0
-    while ix < len(byte_data):
+    for ix in range(len(byte_data)):
         s = " %02x" % (byte_data[ix])
         if (ix + 1) % 20 == 0:  # and ix < len(byte_data) - 10:
             s += "\n"
         outs += s
-        ix += 1
     return outs
 
 def simple_print_byte_array(byte_data):
@@ -165,9 +167,8 @@ def simple_print_byte_array(byte_data):
 
 
 def print_byte_array(byte_data):
-    ix = 0
     outs = "%03d :" % 0
-    while ix < len(byte_data):
+    for ix in range(len(byte_data)):
         pcand = chr(byte_data[ix])
         p = '/'
         if pcand in string.printable:
@@ -183,32 +184,30 @@ def print_byte_array(byte_data):
         if (ix + 1) % 10 == 0:  # and ix < len(byte_data) - 10:
             s += "\n%3d :" % ix
         outs += s
-        ix += 1
     return outs
 
 
-# print("importing SERIAL")
-import serial.tools.list_ports as lp
 
 comport = 'No com port found'
 for sp in lp.comports():
-    # print(sp.description)
-    # print(sp)
     if sp.description.startswith('USB'):
         comport = sp.device
         break
 
-print("comport: " +comport)
-serialPort = None
+print(f"comport: {comport}")
+serial_port = None
 try:
-    serialPort = serial.Serial(comport, 2400, timeout=2, parity=serial.PARITY_EVEN)
+    serial_port = serial.Serial(comport, 2400, timeout=2, parity=serial.PARITY_EVEN)
     print("Serial port created:")
-    print(serialPort)
+    print(serial_port)
 
-    serialPort.reset_input_buffer()
+    serial_port.reset_input_buffer()
     serialString = ""
-except:
+except Exception:
+
     print("Fant ingen com port.\nAvslutter.\n\n Ha det bra.")
+    for sp in lp.comports():
+        print(f"{sp} - {sp.description}")
     exit(0)
 
 
@@ -234,38 +233,45 @@ def find_start(byte_data):
 
 
 def contains_full_message(byte_data):
-    # print "Checking for complete message....."
-    # simple_print_byte_array(byte_data)
-    # print "..............."
+    """
+    See if the byte_data contains a complete list from meter. 
+    The lists start and end with 0x7e.
+
+    Parameters
+    ----------
+    byte_data : _type_
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
     try:
         retval = False
-        ix = 0
+        local_ix = 0
         count_7es = 0
-        first_7e_ix = 0
-        second_7e_ix = 0
-        while ix < len(byte_data):
-            if byte_data[ix] == 0x7e:
-                # print "Found one at ix: %d" % (ix)
+        # first_7e_ix = 0
+        # second_7e_ix = 0
+        while local_ix < len(byte_data):
+            if byte_data[local_ix] == 0x7e:
                 count_7es += 1
                 if count_7es == 1:
-                    if byte_data[ix + 1] == 0x7e:
-                        # print "Also Found one at ix: %d" % (ix + 1)
+                    if byte_data[local_ix + 1] == 0x7e:
                         # this was the border between an end and the start of the next message
-                        ix += 1
-                    first_7e_ix = ix
+                        local_ix += 1
+                    # first_7e_ix = ix
                 else:
                     count_7es += 1
-                    second_7e_ix = ix
+                    # second_7e_ix = ix
 
-            ix += 1
+            local_ix += 1
             if count_7es >= 2:
                 retval = True
                 break
-        # print "Retval= " + str(retval)
-        # print "7e-distance: %d" % (second_7e_ix - first_7e_ix)
 
         return retval
-    except:
+    except Exception:
         return False
 
 
@@ -298,22 +304,21 @@ def extract_next_message(byte_data):
 def read_bytes(given_bytes=0):
     num_bytes = 0
     while num_bytes <= given_bytes:
-        num_bytes = serialPort.in_waiting
+        num_bytes = serial_port.in_waiting
         # print "in_waiting: %d" % num_bytes
         if num_bytes <= given_bytes:
             time.sleep(1)
-    serialString = serialPort.read(num_bytes)
-    data = bytearray(serialString)
-    return data
+    serialString = serial_port.read(num_bytes)
+    return bytearray(serialString)
 
 
 def get_bytes_as_string(ix, num_bytes, input):
     i = 0
-    str = ''
+    ret_string = ''
     while i < num_bytes:
-        str += "%s" % chr(input[ix + i])
+        ret_string += f"{chr(input[ix + i])}"
         i += 1
-    return str
+    return ret_string
 
 
 def append0x(str, ix, num_bytes, input):
@@ -327,28 +332,39 @@ def append0x(str, ix, num_bytes, input):
 
 
 def parse_spec(spec, byte_data):
+    """
+    Use the provided spec to parse and display the data in byte_data.
+
+    Parameters
+    ----------
+    spec : _type_
+        _description_
+    byte_data : _type_
+        _description_
+
+    Returns
+    -------
+    total_string: string
+        The decoded string
+    """
     current_ix = 0
     the_string = ''
     total_string = ''
     as_string = ''
     length_string = ''
-    noof_records = -1
     value = 0.0
     for s in spec:
-        # print total_string
-
         if s == '\n':
             total_string += "%-80s | %-45s - %f\n" % (the_string, as_string, value)
             the_string = ''
             as_string = ''
             value = 0.0
-        elif s == 'r':
-            # gives noof records
+        elif s == 'r': # gives noof records
             s = 2
             the_string = append0x(the_string, current_ix, s, byte_data)
             current_ix += s
             as_string = " %d " % byte_data[current_ix - 1]
-        elif s == 'h':
+        elif s == 'h': # Hex data
             addr_field = byte_data[current_ix]
             length_field = byte_data[current_ix + 1]
             length_string = "addr: 0x%02x - length: 0x%02x/%d" % (addr_field, length_field, length_field)
@@ -356,7 +372,7 @@ def parse_spec(spec, byte_data):
             s = 2
             the_string = append0x(the_string, current_ix, s, byte_data)
             current_ix += s
-        elif s == 'l':
+        elif s == 'l': 
             # The data extracted here is a readable string, so
             # extract the length now
             length = byte_data[current_ix + 1]
@@ -365,8 +381,7 @@ def parse_spec(spec, byte_data):
             the_string = append0x(the_string, current_ix, length, byte_data)
             as_string = get_bytes_as_string(current_ix, length, byte_data)
             current_ix += length
-        elif s == 'O':
-            # Obis code
+        elif s == 'O': # There is an Obis code in this position
             s = 6
             the_string = append0x(the_string, current_ix, s, byte_data)
             obis_bytes = byte_data[current_ix:current_ix + s]
@@ -379,7 +394,7 @@ def parse_spec(spec, byte_data):
 
                 value = x
 
-            if byte_data[current_ix + s] == 0x10 or byte_data[current_ix + s] == 0x12:
+            if byte_data[current_ix + s] in [0x10, 0x12]:
                 value_bytes = byte_data[current_ix + 7:current_ix + 7 + 2]
                 x = 0
                 for c in value_bytes:
@@ -391,10 +406,9 @@ def parse_spec(spec, byte_data):
             for b in obis_bytes:
                 as_string += "%d." % b
 
-            as_string += " " + oct2Obis(as_string)
+            as_string += f" {oct_2_obis(as_string)}"
             current_ix += s
-        elif s == 'R':
-            # just output the rest of the message
+        elif s == 'R': # just output the rest of the message
             remainder = len(byte_data) - current_ix
             the_string = append0x(the_string, current_ix, remainder, byte_data)
         else:
@@ -408,6 +422,8 @@ def list3(byte_data):
     print("list3")
     print("lenght: %d" % (len(byte_data)))
     print(get_now())
+    print(byte_data)
+    print("===============================================\n============================\n==================")
 
     spec = [
         1, 'h', 1, 2, 1, 2, 3, '\n',
@@ -465,25 +481,31 @@ def list3(byte_data):
 
 
 def list2(byte_data):
-    print('---------')
     print(get_now())
+    print("====\nLIST 2\n====")
 
-    spec = [
-        1, 'h', 1, 2, 1, 2, 3, '\n',
-        1, 4, 1, '\n',
-        'r', '\n',
-        2, 2, 6, 'l', '\n',  # The length is stored here, at 'l'
-        2, 2, 6, 'l', '\n',  # The length is stored here
-        2, 2, 6, 'l', '\n',  # The length is stored here
-        2, 2, 'O', 1, 4, 2, 2, 2, '\n',
-        2, 2, 'O', 1, 4, 2, 2, 2, '\n',
-        2, 2, 'O', 1, 4, 2, 2, 2, '\n',
-        2, 2, 'O', 1, 4, 2, 2, 2, '\n',
-        2, 2, 'O', 1, 2, 2, 2, 2, '\n',
-        2, 2, 'O', 1, 2, 2, 2, 2, '\n',
-        'R', '\n'  # output the rest....
-    ]
-    if len(byte_data) > 220:
+    if len(byte_data) > 280:
+        # Aidon's 6560 also needs UL3, typical length of message could be 288
+        spec = [
+            1, 'h', 1, 2, 1, 2, 3, '\n',
+            1, 4, 1, '\n',
+            'r', '\n',
+            2, 2, 6, 'l', '\n',  # The length is stored here, at 'l'
+            2, 2, 6, 'l', '\n',  # The length is stored here
+            2, 2, 6, 'l', '\n',  # The length is stored here
+            2, 2, 'O', 1, 4, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 4, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 4, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 4, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 2, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 2, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 2, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 2, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 2, 2, 2, 2, '\n',
+            2, 2, 'O', 1, 2, 2, 2, 2, '\n',
+            'R', '\n'  # output the rest....
+        ]
+    elif len(byte_data) > 220:
         spec = [
             1, 'h', 1, 2, 1, 2, 3, '\n',
             1, 4, 1, '\n',
@@ -502,6 +524,23 @@ def list2(byte_data):
             2, 2, 'O', 1, 2, 2, 2, 2, '\n',
             'R', '\n'  # output the rest....
         ]
+    else:
+        spec = [
+                1, 'h', 1, 2, 1, 2, 3, '\n',
+                1, 4, 1, '\n',
+                'r', '\n',
+                2, 2, 6, 'l', '\n',  # The length is stored here, at 'l'
+                2, 2, 6, 'l', '\n',  # The length is stored here
+                2, 2, 6, 'l', '\n',  # The length is stored here
+                2, 2, 'O', 1, 4, 2, 2, 2, '\n',
+                2, 2, 'O', 1, 4, 2, 2, 2, '\n',
+                2, 2, 'O', 1, 4, 2, 2, 2, '\n',
+                2, 2, 'O', 1, 4, 2, 2, 2, '\n',
+                2, 2, 'O', 1, 2, 2, 2, 2, '\n',
+                2, 2, 'O', 1, 2, 2, 2, 2, '\n',
+                'R', '\n'  # output the rest....
+            ]
+
 
     total_string = parse_spec(spec, byte_data)
     list2_file.write(get_now())
@@ -545,37 +584,39 @@ ringbuffer = []
 
 log_file.write(get_now())
 log_file.write("\n")
-log_file.write("Hafslund&Elvia HAN tester version: " + current_version)
+log_file.write(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
 log_file.write("\n")
-while (1):
+# ---------------
+# The main loop
+# waiting for and processing input from the serial port
+#----------------------------------------------------------------
+while True:
     ix += 1
     s = "sleeping %d \r" % ix
     print(s, end=' ')
     time.sleep(1)
     ix += 1
-    if (serialPort.in_waiting > 0):
-        data = read_bytes(serialPort.in_waiting)
+    if serial_port.in_waiting > 0:
+        data = read_bytes(serial_port.in_waiting)
         ringbuffer.extend(data)
         log_ringbuffer(ringbuffer)
-        
-
 
         try:
             while contains_full_message(ringbuffer):
                 next_message = extract_next_message(ringbuffer)
 
                 raw_data = simple_print_byte_array(next_message)
-                list = ''
+                this_list = ''
                 if len(next_message) > 300:
-                    list = list3(next_message)
+                    this_list = list3(next_message)
                 elif len(next_message) > 100:
-                    list = list2(next_message)
+                    this_list = list2(next_message)
                 elif len(next_message) > 40:
-                    list = list1(next_message)
+                    this_list = list1(next_message)
 
                 log_file.write(get_now())
                 log_file.write(raw_data)
-                log_file.write(list)
+                log_file.write(this_list)
         except Exception as inst:
             print("handle Exception")
             print(type(inst))    # the exception instance
@@ -587,9 +628,9 @@ while (1):
             print("oooooooooooooops")
             print(ringbuffer)
             log_file.write("Exception in main while loop")
-            log_file.write(type(inst))
-            log_file.write(inst.args)
-            log_file.write(inst)
+            log_file.write(type(inst))  # type: ignore
+            log_file.write(inst.args)  # type: ignore
+            log_file.write(str(inst))  # type: ignore
 
 
         print("\n")

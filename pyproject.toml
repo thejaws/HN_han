@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "hn_han"
+version = "2.14.0"
+description = "Basic reading of information from Aidon HAN ports."
+authors = ["John Åsmund Westberg <thejaws@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pyserial = "^3.5"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
