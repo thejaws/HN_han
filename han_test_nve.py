@@ -1,5 +1,7 @@
 """HAN port tester."""
 import datetime
+import os.path
+import re
 import string
 import sys
 import time
@@ -7,34 +9,53 @@ import time
 import serial
 import serial.tools.list_ports as lp
 
-CURRENT_VERSION = 'v2.14 - 2022-11-15'
-
-### Revision history
-### ---------- -------------         ------------------------------------------
-### 2020-12-07 jaws         - v2    - Added rudimentary exception handling
-### 2020-12-07 jaws         - v2.1  - Adding logging of ringbuffer
-### 2020-12-07 jaws         - v2.11 - Fixed a bug in log_ringbuffer
-### 2020-12-07 jaws         - v2.12 - Removed finally-clause which caused all log files to close.
-### 2020-12-07 jaws         - v2.13 - added newline to logfile output
-### 2022-12-15 jaws         - v2.14 - Fixing linting warnings while trying to add UL3 decoding output
+# Revision history
+# ---------- -------------         ------------------------------------------
+# 2020-12-07 jaws         - v2    - Added rudimentary exception handling
+# 2020-12-07 jaws         - v2.1  - Adding logging of ringbuffer
+# 2020-12-07 jaws         - v2.11 - Fixed a bug in log_ringbuffer
+# 2020-12-07 jaws         - v2.12 - Removed finally-clause which caused all log files to close.
+# 2020-12-07 jaws         - v2.13 - added newline to logfile output
+# 2022-11-15 jaws         - v2.14 - Fixing linting warnings while trying to add UL3 decoding output
+# 2022-11-21 jaws         - v2.15 - Started working on offline/dry-run capabilities
 
 # python -m serial.tools.list_ports -v
 
-### ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
-# import binascii
-
-for a in sys.argv:
-    if a == '--help':
-        print("--help")
-        print("--version")
-        exit(0)
-
-    elif a == '--version':
-        print(f"VERSION: {CURRENT_VERSION}")
-        exit(0)
+CURRENT_VERSION = "v2.15 - 2022-11-15"
 print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
 
+
+def parse_command_line(options):
+    options["file_name"] = None
+    for a in sys.argv:
+        if a == "--help":
+            print("===================================================")
+            print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
+            print("===================================================")
+            print("--help")
+            print("--version")
+            print("--from-file=<file name>")
+            exit(0)
+
+        elif a == "--version":
+            print(f"VERSION: {CURRENT_VERSION}")
+            exit(0)
+        elif a.startswith("--from-file="):
+            fname = re.search(r"--from-file=(.*)", a).group(1)
+            if os.path.exists(fname):
+                print(f"File name is {fname}")
+                options["file_name"] = fname
+            else:
+                print(f"No such file: {fname}")
+                exit(0)
+        elif a != sys.argv[0]:
+            print(f"Unknown argument: {a}")
+            exit(0)
+
+
+# fmt: off
 # example list 3 for 6525
 list3_string_6525 = [0x7e, 0xa1, 0x77, 0x41, 0x08, 0x83, 0x13, 0x39, 0x1e, 0xe6, 0xe7, 0x00, 0x0f, 0x40, 0x00, 0x00,
                      0x00, 0x00, 0x01, 0x11, 0x02, 0x02, 0x09, 0x06, 0x01, 0x01, 0x00, 0x02, 0x81, 0xff, 0x0a, 0x0b,
@@ -62,45 +83,33 @@ list3_string_6525 = [0x7e, 0xa1, 0x77, 0x41, 0x08, 0x83, 0x13, 0x39, 0x1e, 0xe6,
                      0x02, 0x02, 0x0f, 0x01, 0x16, 0x20, 0x1b, 0x0f, 0x7e]
 
 list3_string_6515 = [
-    0x7e, 0xa1, 0x3e, 0x41, 0x08, 0x83, 0x13, 0x7f, 0x8e, 0xe6, 0xe7, 0x00, 0x0f, 0x40, 0x00, 0x00, 0x00, 0x00, 0x01,
-    0x0e
-    , 0x02, 0x02, 0x09, 0x06, 0x01, 0x01, 0x00, 0x02, 0x81, 0xff, 0x0a, 0x0b, 0x41, 0x49, 0x44, 0x4f, 0x4e, 0x5f, 0x56,
-    0x30
-    , 0x30, 0x30, 0x31, 0x02, 0x02, 0x09, 0x06, 0x00, 0x00, 0x60, 0x01, 0x00, 0xff, 0x0a, 0x10, 0x37, 0x33, 0x35, 0x39,
-    0x39
-    , 0x39, 0x32, 0x38, 0x39, 0x38, 0x36, 0x30, 0x38, 0x30, 0x31, 0x32, 0x02, 0x02, 0x09, 0x06, 0x00, 0x00, 0x60, 0x01,
-    0x07
-    , 0xff, 0x0a, 0x04, 0x36, 0x35, 0x31, 0x35, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x01, 0x07, 0x00, 0xff, 0x06, 0x00,
-    0x00
-    , 0x00, 0x06, 0x02, 0x02, 0x0f, 0x00, 0x16, 0x1b, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x02, 0x07, 0x00, 0xff, 0x06,
-    0x00
-    , 0x00, 0x00, 0x00, 0x02, 0x02, 0x0f, 0x00, 0x16, 0x1b, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x03, 0x07, 0x00, 0xff,
-    0x06
-    , 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x0f, 0x00, 0x16, 0x1d, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x04, 0x07, 0x00,
-    0xff
-    , 0x06, 0x00, 0x00, 0x00, 0x08, 0x02, 0x02, 0x0f, 0x00, 0x16, 0x1d, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x1f, 0x07,
-    0x00
-    , 0xff, 0x10, 0x00, 0x00, 0x02, 0x02, 0x0f, 0xff, 0x16, 0x21, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x20, 0x07, 0x00,
-    0xff
-    , 0x12, 0x09, 0x0f, 0x02, 0x02, 0x0f, 0xff, 0x16, 0x23, 0x02, 0x02, 0x09, 0x06, 0x00, 0x00, 0x01, 0x00, 0x00, 0xff,
-    0x09
-    , 0x0c, 0x07, 0xe3, 0x02, 0x1a, 0x02, 0x0f, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00,
-    0x01
-    , 0x08, 0x00, 0xff, 0x06, 0x00, 0x00, 0x17, 0x1c, 0x02, 0x02, 0x0f, 0x01, 0x16, 0x1e, 0x02, 0x03, 0x09, 0x06, 0x01,
-    0x00
-    , 0x02, 0x08, 0x00, 0xff, 0x06, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x0f, 0x01, 0x16, 0x1e, 0x02, 0x03, 0x09, 0x06,
-    0x01
-    , 0x00, 0x03, 0x08, 0x00, 0xff, 0x06, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x0f, 0x01, 0x16, 0x20, 0x02, 0x03, 0x09,
-    0x06
-    , 0x01, 0x00, 0x04, 0x08, 0x00, 0xff, 0x06, 0x00, 0x00, 0x1b, 0xf5, 0x02, 0x02, 0x0f, 0x01, 0x16, 0x20, 0xa1, 0x19,
-    0x7e
+    0x7e, 0xa1, 0x3e, 0x41, 0x08, 0x83, 0x13, 0x7f, 0x8e, 0xe6, 0xe7, 0x00, 0x0f, 0x40, 0x00, 0x00, 0x00, 0x00, 0x01, 0x0e
+    , 0x02, 0x02, 0x09, 0x06, 0x01, 0x01, 0x00, 0x02, 0x81, 0xff, 0x0a, 0x0b, 0x41, 0x49, 0x44, 0x4f, 0x4e, 0x5f, 0x56, 0x30
+    , 0x30, 0x30, 0x31, 0x02, 0x02, 0x09, 0x06, 0x00, 0x00, 0x60, 0x01, 0x00, 0xff, 0x0a, 0x10, 0x37, 0x33, 0x35, 0x39, 0x39
+    , 0x39, 0x32, 0x38, 0x39, 0x38, 0x36, 0x30, 0x38, 0x30, 0x31, 0x32, 0x02, 0x02, 0x09, 0x06, 0x00, 0x00, 0x60, 0x01, 0x07
+    , 0xff, 0x0a, 0x04, 0x36, 0x35, 0x31, 0x35, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x01, 0x07, 0x00, 0xff, 0x06, 0x00, 0x00
+    , 0x00, 0x06, 0x02, 0x02, 0x0f, 0x00, 0x16, 0x1b, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x02, 0x07, 0x00, 0xff, 0x06, 0x00
+    , 0x00, 0x00, 0x00, 0x02, 0x02, 0x0f, 0x00, 0x16, 0x1b, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x03, 0x07, 0x00, 0xff, 0x06
+    , 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x0f, 0x00, 0x16, 0x1d, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x04, 0x07, 0x00, 0xff
+    , 0x06, 0x00, 0x00, 0x00, 0x08, 0x02, 0x02, 0x0f, 0x00, 0x16, 0x1d, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x1f, 0x07, 0x00
+    , 0xff, 0x10, 0x00, 0x00, 0x02, 0x02, 0x0f, 0xff, 0x16, 0x21, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x20, 0x07, 0x00, 0xff
+    , 0x12, 0x09, 0x0f, 0x02, 0x02, 0x0f, 0xff, 0x16, 0x23, 0x02, 0x02, 0x09, 0x06, 0x00, 0x00, 0x01, 0x00, 0x00, 0xff, 0x09
+    , 0x0c, 0x07, 0xe3, 0x02, 0x1a, 0x02, 0x0f, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00, 0x01
+    , 0x08, 0x00, 0xff, 0x06, 0x00, 0x00, 0x17, 0x1c, 0x02, 0x02, 0x0f, 0x01, 0x16, 0x1e, 0x02, 0x03, 0x09, 0x06, 0x01, 0x00
+    , 0x02, 0x08, 0x00, 0xff, 0x06, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x0f, 0x01, 0x16, 0x1e, 0x02, 0x03, 0x09, 0x06, 0x01
+    , 0x00, 0x03, 0x08, 0x00, 0xff, 0x06, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x0f, 0x01, 0x16, 0x20, 0x02, 0x03, 0x09, 0x06
+    , 0x01, 0x00, 0x04, 0x08, 0x00, 0xff, 0x06, 0x00, 0x00, 0x1b, 0xf5, 0x02, 0x02, 0x0f, 0x01, 0x16, 0x20, 0xa1, 0x19, 0x7e
 ]
+# fmt on
 
-list2_file     = open('list2.txt', 'a')
-list3_file     = open('list3.txt', 'a')
-list1_file     = open('list1.txt', 'a')
-log_file       = open('rawlog.txt', 'a')
+list2_file = open('list2.txt', 'a')
+list3_file = open('list3.txt', 'a')
+list1_file = open('list1.txt', 'a')
+log_file = open('rawlog.txt', 'a')
 ringbuffer_log = open('ringbuffer.txt', 'a')
+rawlogfile_binary = open('rawlogfile_binary.txt', 'ab')
+rawlogfile_bytes = open('rawlogfile_bytes', 'a')
+
 
 obis = {
     '1.0.1.7.0.255.': 'Active power+(Q1+Q4)',
@@ -117,7 +126,8 @@ obis = {
     '1.0.1.8.0.255.': 'A+cumul',
     '1.0.2.8.0.255.': 'A-cumul',
     '1.0.3.8.0.255.': 'R+cumul',
-    '1.0.4.8.0.255.': 'A-cumul'
+    '1.0.4.8.0.255.': 'A-cumul',
+     '1.1.0.2.129.255.': 'OBIS list version id'
 
 }
 
@@ -160,6 +170,7 @@ def get_simple_print_byte_array(byte_data):
         outs += s
     return outs
 
+
 def simple_print_byte_array(byte_data):
     outs = get_simple_print_byte_array(byte_data)
     print(outs)
@@ -186,29 +197,6 @@ def print_byte_array(byte_data):
         outs += s
     return outs
 
-
-
-comport = 'No com port found'
-for sp in lp.comports():
-    if sp.description.startswith('USB'):
-        comport = sp.device
-        break
-
-print(f"comport: {comport}")
-serial_port = None
-try:
-    serial_port = serial.Serial(comport, 2400, timeout=2, parity=serial.PARITY_EVEN)
-    print("Serial port created:")
-    print(serial_port)
-
-    serial_port.reset_input_buffer()
-    serialString = ""
-except Exception:
-
-    print("Fant ingen com port.\nAvslutter.\n\n Ha det bra.")
-    for sp in lp.comports():
-        print(f"{sp} - {sp.description}")
-    exit(0)
 
 
 def find_start(byte_data):
@@ -254,6 +242,7 @@ def contains_full_message(byte_data):
         # first_7e_ix = 0
         # second_7e_ix = 0
         while local_ix < len(byte_data):
+            # print(f"{byte_data[local_ix]}, {hex(byte_data[local_ix])}")
             if byte_data[local_ix] == 0x7e:
                 count_7es += 1
                 if count_7es == 1:
@@ -276,13 +265,10 @@ def contains_full_message(byte_data):
 
 
 def extract_next_message(byte_data):
-    # simple_print_byte_array(byte_data)
-    # print "extracting the next message"
+    # print(f"byte_data:\n{byte_data}\n{byte_data.__class__}")
     retval = []
     if (byte_data[0] == 0x7e and byte_data[1] != 0x7e):
         print(".")
-        # throwing = byte_data.pop(0)
-        # print "Throwing 0x%02x" % (throwing)
     else:
         find_start(byte_data)
 
@@ -425,6 +411,7 @@ def list3(byte_data):
     print(byte_data)
     print("===============================================\n============================\n==================")
 
+    # fmt: off
     spec = [
         1, 'h', 1, 2, 1, 2, 3, '\n',
         1, 4, 1, '\n',
@@ -447,7 +434,9 @@ def list3(byte_data):
         2, 2, 'O', 1, 4, 2, 2, 2, '\n',
         'R', '\n'  # output the rest....
     ]
+    # fmt: on
     if len(byte_data) > 350:
+        # fmt: off
         spec = [
             1, 'h', 1, 2, 1, 2, 3, '\n',
             1, 4, 1, '\n',
@@ -473,6 +462,7 @@ def list3(byte_data):
             2, 2, 'O', 1, 4, 2, 2, 2, '\n',
             'R', '\n'  # output the rest....
         ]
+        # fmt: on
     total_string = parse_spec(spec, byte_data)
     list3_file.write(get_now())
     list3_file.write(total_string)
@@ -486,6 +476,7 @@ def list2(byte_data):
 
     if len(byte_data) > 280:
         # Aidon's 6560 also needs UL3, typical length of message could be 288
+        # fmt: off
         spec = [
             1, 'h', 1, 2, 1, 2, 3, '\n',
             1, 4, 1, '\n',
@@ -505,8 +496,10 @@ def list2(byte_data):
             2, 2, 'O', 1, 2, 2, 2, 2, '\n',
             'R', '\n'  # output the rest....
         ]
+        # fmt: on
     elif len(byte_data) > 220:
         spec = [
+        # fmt: off
             1, 'h', 1, 2, 1, 2, 3, '\n',
             1, 4, 1, '\n',
             'r', '\n',
@@ -524,7 +517,9 @@ def list2(byte_data):
             2, 2, 'O', 1, 2, 2, 2, 2, '\n',
             'R', '\n'  # output the rest....
         ]
+        # fmt: on
     else:
+        # fmt: off
         spec = [
                 1, 'h', 1, 2, 1, 2, 3, '\n',
                 1, 4, 1, '\n',
@@ -540,7 +535,7 @@ def list2(byte_data):
                 2, 2, 'O', 1, 2, 2, 2, 2, '\n',
                 'R', '\n'  # output the rest....
             ]
-
+        # fmt: on
 
     total_string = parse_spec(spec, byte_data)
     list2_file.write(get_now())
@@ -552,6 +547,7 @@ def list2(byte_data):
 def list1(byte_data):
     print('---------')
     print(get_now())
+    # fmt: off
     spec = [
         1, 'h', 1, 2, 1, 2, 3, '\n',
         1, 4, 1, '\n',
@@ -560,6 +556,7 @@ def list1(byte_data):
         3, '\n',
         1, '\n'
     ]
+    # fmt: off
     the_string = parse_spec(spec, byte_data)
     list1_file.write(get_now())
     list1_file.write(the_string)
@@ -571,66 +568,110 @@ def log_ringbuffer(buf):
     ringbuffer_log.write(get_now())
     ringbuffer_log.write("\n")
     ringbuffer_log.write(get_simple_print_byte_array(buf))
+    rawlogfile_bytes.write(get_simple_print_byte_array(buf))
     ringbuffer_log.write("\n")
 
-# list3(list3_string_6525)
-# list3(list3_string_6515)
-# exit(0)
 
-# print "waiting ..."
-ix = 0
-ringbuffer = []
+def get_comport():
+    comport = 'No com port found'
+    for sp in lp.comports():
+        if sp.description.startswith('USB'):
+            comport = sp.device
+            break
 
+    print(f"comport: {comport}")
+    try:
+        serial_port = serial.Serial(comport, 2400, timeout=2, parity=serial.PARITY_EVEN)
+        print("Serial port created:")
+        print(serial_port)
 
-log_file.write(get_now())
-log_file.write("\n")
-log_file.write(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
-log_file.write("\n")
-# ---------------
-# The main loop
-# waiting for and processing input from the serial port
-#----------------------------------------------------------------
-while True:
-    ix += 1
-    s = "sleeping %d \r" % ix
-    print(s, end=' ')
-    time.sleep(1)
-    ix += 1
-    if serial_port.in_waiting > 0:
-        data = read_bytes(serial_port.in_waiting)
-        ringbuffer.extend(data)
-        log_ringbuffer(ringbuffer)
+        serial_port.reset_input_buffer()
+        # serialString = ""
+    except Exception:
 
-        try:
-            while contains_full_message(ringbuffer):
-                next_message = extract_next_message(ringbuffer)
+        print("Fant ingen com port.\nAvslutter.\n\n Ha det bra.")
+        for sp in lp.comports():
+            print(f"{sp} - {sp.description}")
+        exit(0)
 
-                raw_data = simple_print_byte_array(next_message)
-                this_list = ''
-                if len(next_message) > 300:
-                    this_list = list3(next_message)
-                elif len(next_message) > 100:
-                    this_list = list2(next_message)
-                elif len(next_message) > 40:
-                    this_list = list1(next_message)
-
-                log_file.write(get_now())
-                log_file.write(raw_data)
-                log_file.write(this_list)
-        except Exception as inst:
-            print("handle Exception")
-            print(type(inst))    # the exception instance
-            print(inst.args)     # arguments stored in .args
-            print(inst)          # __str__ allows args to be printed directly,
-                                # but may be overridden in exception subclasses
-            
-            print('-----')        
-            print("oooooooooooooops")
-            print(ringbuffer)
-            log_file.write("Exception in main while loop")
-            log_file.write(type(inst))  # type: ignore
-            log_file.write(inst.args)  # type: ignore
-            log_file.write(str(inst))  # type: ignore
+    return serial_port
 
 
-        print("\n")
+def parse_data(ringbuffer):
+    try:
+        while contains_full_message(ringbuffer):
+            next_message = extract_next_message(ringbuffer)
+
+            raw_data = simple_print_byte_array(next_message)
+            this_list = ''
+            if len(next_message) > 300:
+                this_list = list3(next_message)
+            elif len(next_message) > 100:
+                this_list = list2(next_message)
+            elif len(next_message) > 40:
+                this_list = list1(next_message)
+
+            log_file.write(get_now())
+            log_file.write(raw_data)
+            log_file.write(this_list)
+    except Exception as inst:
+        print(inst)
+        print('-----')
+        print(ringbuffer)
+        log_file.write("Exception in main while loop")
+        log_file.write(type(inst))  # type: ignore
+        log_file.write(inst.args)   # type: ignore
+        log_file.write(str(inst))   # type: ignore
+
+
+def read_data_from_serial_port(serial_port):
+    ix = 0
+    ringbuffer = []
+
+    log_file.write(get_now())
+    log_file.write("\n")
+    log_file.write(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
+    log_file.write("\n")
+    # ---------------
+    # The main loop
+    # waiting for and processing input from the serial port
+    # -----------------------------------------------------
+    while True:
+        ix += 1
+        s = "sleeping %d \r" % ix
+        print(s, end=' ')
+        time.sleep(1)
+        ix += 1
+        if serial_port.in_waiting > 0:
+            data = read_bytes(serial_port.in_waiting)
+            rawlogfile_binary.write(data)
+            ringbuffer.extend(data)
+            log_ringbuffer(ringbuffer)
+            parse_data(ringbuffer)
+
+
+
+def read_data_from_file(input_file):
+    """Read serial data from a text file."""
+    lines_of_data = open(input_file).read()
+    lines_of_data.replace(' ','')
+    lines_of_data.replace('\n','')
+    b = bytes.fromhex(lines_of_data)
+    bb = bytearray(b)
+    return bb
+
+
+if __name__ == '__main__':
+    options = {}
+    parse_command_line(options)
+    input_file = options['file_name']
+
+    serial_port = get_comport() if input_file is None else None
+    if input_file is not None:
+        parse_data(read_data_from_file(input_file))
+    elif serial_port is not None:
+        read_data_from_serial_port(serial_port)
+    else:
+        print("No file given. No port available.\nquitting.\n")
+
+    print("\n")
