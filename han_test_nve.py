@@ -1,4 +1,5 @@
 """HAN port tester."""
+# pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
 import datetime
 import os.path
 import re
@@ -18,12 +19,13 @@ import serial.tools.list_ports as lp
 # 2020-12-07 jaws         - v2.13 - added newline to logfile output
 # 2022-11-15 jaws         - v2.14 - Fixing linting warnings while trying to add UL3 decoding output
 # 2022-11-21 jaws         - v2.15 - Started working on offline/dry-run capabilities
+# 2022-11-29 jaws         - v2.16 - Started working on added readability output
 
 # python -m serial.tools.list_ports -v
 
 # ----------------------------------------------------------------------------
 
-CURRENT_VERSION = "v2.15 - 2022-11-15"
+CURRENT_VERSION = "v2.16 - 2022-11-29"
 print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
 
 
@@ -31,19 +33,12 @@ def parse_command_line(options):
     options["file_name"] = None
     for a in sys.argv:
         if a == "--help":
-            print("===================================================")
-            print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
-            print("===================================================")
-            print("--help")
-            print("--version")
-            print("--from-file=<file name>")
-            exit(0)
-
+            _extracted_from_parse_command_line_5()
         elif a == "--version":
             print(f"VERSION: {CURRENT_VERSION}")
             exit(0)
         elif a.startswith("--from-file="):
-            fname = re.search(r"--from-file=(.*)", a).group(1)
+            fname = re.search(r"--from-file=(.*)", a)[1]
             if os.path.exists(fname):
                 print(f"File name is {fname}")
                 options["file_name"] = fname
@@ -53,6 +48,17 @@ def parse_command_line(options):
         elif a != sys.argv[0]:
             print(f"Unknown argument: {a}")
             exit(0)
+
+
+# TODO Rename this here and in `parse_command_line`
+def _extracted_from_parse_command_line_5():
+    print("===================================================")
+    print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
+    print("===================================================")
+    print("--help")
+    print("--version")
+    print("--from-file=<file name>")
+    exit(0)
 
 
 # fmt: off
@@ -140,22 +146,29 @@ def get_now():
     return f'{[datetime.datetime.now().strftime("%a, %d %B %Y %H:%M:%S")]}'
 
 
+def printable_byte(one_byte):
+    # print("A")
+    pcand = chr(one_byte)
+    # print(f"CNAD:{pcand}")
+    return_printable = ' . '
+    if pcand in string.printable:
+        return_printable = pcand
+        if return_printable == '\t':
+            return_printable = ' '
+        if return_printable == ' ':
+            return_printable = ' '
+        if return_printable == '\r':
+            return_printable = ' '
+    # print(f"Returning: {return_printable}")
+    return return_printable
+
 def printable(byte_data):
     outs = "%03d :" % 0
     for ix in range(len(byte_data)):
-        pcand = chr(byte_data[ix])
-        p = ' '
-        if pcand in string.printable:
-            p = pcand
-            if p == '\t':
-                p = ' '
-            if p == ' ':
-                p = ' '
-            if p == '\r':
-                p = ' '
+        p = printable_byte(byte_data[ix])
 
         s = "%2s" % (p)
-        if (ix + 1) % 30 == 0:  # and ix < len(byte_data) - 10:
+        if (ix + 1) % 30 == 0:
             s += "\n"
         outs += s
     return outs
@@ -165,7 +178,7 @@ def get_simple_print_byte_array(byte_data):
     outs = ''
     for ix in range(len(byte_data)):
         s = " %02x" % (byte_data[ix])
-        if (ix + 1) % 20 == 0:  # and ix < len(byte_data) - 10:
+        if (ix + 1) % 20 == 0:  
             s += "\n"
         outs += s
     return outs
@@ -174,6 +187,17 @@ def get_simple_print_byte_array(byte_data):
 def simple_print_byte_array(byte_data):
     outs = get_simple_print_byte_array(byte_data)
     print(outs)
+    readable_string = ""
+    ix = 0
+    for s in byte_data:
+        ix += 1
+        if ix % 20 == 0:
+            readable_string += "\n"
+        readable_string += "%-3s" % printable_byte(s)
+    
+    print("=== readable ====")
+    print(readable_string)
+    print("^^^^^^^^^^^^^^^^^")
     return outs
 
 
@@ -274,15 +298,14 @@ def extract_next_message(byte_data):
 
     the_count = 0
     while the_count < 2:
-        # print "the_count: %d" % the_count
         the_byte = byte_data.pop(0)
-        # print "the byte: %02x" % the_byte
         if the_byte == 0x7e:
             the_count += 1
 
         retval.append(the_byte)
 
     print("Extracted message length: %d" % len(retval))
+
 
     return retval
 
