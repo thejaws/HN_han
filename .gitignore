@@ -1,2 +1,7 @@
 poetry-installer-error-rh7tcgab.log
 #han_test_nve.py#
+new_reader/*
+old_reader/*
+output/*
+.gitignore
+.dir-locals.el

@@ -561,4 +561,13 @@ ae277e                                                                          
 0203 0906 0100010700ff 06 00000000 0202 0f00 161b                                | 1.0.1.7.0.255. Active power+(Q1+Q4)           - 0.000000
 ae277e                                                                           |                                               - 0.000000
                                                                                  |                                               - 0.000000
-Exception in main while loop<class 'IndexError'>('list index out of range',)list index out of range
+Exception in main while loop<class 'IndexError'>('list index out of range',)list index out of range['Mon, 13 March 2023 20:42:07']
+Hafslund&Elvia HAN tester version: v2.16 - 2022-11-29
+Exception in main while loop<class 'IndexError'>('list index out of range',)list index out of range['Mon, 13 March 2023 20:42:15'] 7e a0 2a 41 08 83 13 04 13 e6 e7 00 0f 40 00 00 00 00 01 01
+ 02 03 09 06 01 00 01 07 00 ff 06 00 00 00 00 02 02 0f 00 16
+ 1b ae 27 7e7e a02a 41 0883 13 0413 e6e700                                                   |                                               - 0.000000
+0f 40000000 00                                                                   |                                               - 0.000000
+0101                                                                             |  1                                            - 0.000000
+0203 0906 0100010700ff 06 00000000 0202 0f00 161b                                | 1.0.1.7.0.255. Active power+(Q1+Q4)           - 0.000000
+ae277e                                                                           |                                               - 0.000000
+                                                                                 |                                               - 0.000000
