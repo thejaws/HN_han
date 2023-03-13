@@ -496,6 +496,8 @@ def list3(byte_data):
 def list2(byte_data):
     print(get_now())
     print("====\nLIST 2\n====")
+    print(get_simple_print_byte_array(byte_data))
+    print(f"length byte data:{len(byte_data)}")
 
     if len(byte_data) > 280:
         # Aidon's 6560 also needs UL3, typical length of message could be 288
@@ -568,7 +570,7 @@ def list2(byte_data):
 
 
 def list1(byte_data):
-    print('---------')
+    print("====\nLIST 1\n====")
     print(get_now())
     # fmt: off
     spec = [
@@ -598,13 +600,13 @@ def log_ringbuffer(buf):
 def get_comport():
     comport = 'No com port found'
     for sp in lp.comports():
-        if sp.description.startswith('USB'):
+        if "USB" in sp.description:
             comport = sp.device
             break
 
     print(f"comport: {comport}")
     try:
-        serial_port = serial.Serial(comport, 2400, timeout=2, parity=serial.PARITY_EVEN)
+        serial_port = serial.Serial(comport, 2400, timeout=5, parity=serial.PARITY_EVEN)
         print("Serial port created:")
         print(serial_port)
 
@@ -614,7 +616,7 @@ def get_comport():
 
         print("Fant ingen com port.\nAvslutter.\n\n Ha det bra.")
         for sp in lp.comports():
-            print(f"{sp} - {sp.description}")
+            print(f"Name: {sp.name} - Description: {sp.description}")
         exit(0)
 
     return serial_port
@@ -642,8 +644,8 @@ def parse_data(ringbuffer):
         print('-----')
         print(ringbuffer)
         log_file.write("Exception in main while loop")
-        log_file.write(type(inst))  # type: ignore
-        log_file.write(inst.args)   # type: ignore
+        log_file.write(str(type(inst)))  # type: ignore
+        log_file.write(str(inst.args))   # type: ignore
         log_file.write(str(inst))   # type: ignore
 
 
@@ -671,7 +673,6 @@ def read_data_from_serial_port(serial_port):
             ringbuffer.extend(data)
             log_ringbuffer(ringbuffer)
             parse_data(ringbuffer)
-
 
 
 def read_data_from_file(input_file):
