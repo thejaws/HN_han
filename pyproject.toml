@@ -8,6 +8,8 @@ authors = ["John Åsmund Westberg <thejaws@gmail.com>"]
 python = "^3.10"
 pyserial = "^3.5"
 black = "^22.10.0"
+asyncio = "^3.4.3"
+pyserial-asyncio = "^0.6"
 
 [tool.poetry.dev-dependencies]
 
