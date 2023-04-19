@@ -20,7 +20,7 @@ def parse_command_line(options):
     options["file_name"] = None
     for a in sys.argv:
         if a == "--help":
-            _extracted_from_parse_command_line_5()
+            _print_help()
         elif a == "--version":
             print(f"VERSION: {CURRENT_VERSION}")
             exit(0)
@@ -37,15 +37,14 @@ def parse_command_line(options):
             exit(0)
 
 
-# TODO Rename this here and in `parse_command_line`
-def _extracted_from_parse_command_line_5():
-    print("===================================================")
-    print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
-    print("===================================================")
-    print("--help")
-    print("--version")
-    print("--from-file=<file name>")
-    exit(0)
+# def _extracted_from_parse_command_line_5():
+#     print("===================================================")
+#     print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
+#     print("===================================================")
+#     print("--help")
+#     print("--version")
+#     print("--from-file=<file name>")
+#     exit(0)
 
 
 list2_file = open("list2.txt", "a")
@@ -141,7 +140,7 @@ def log_ringbuffer(buf):
 
 
 # TODO Rename this here and in `parse_data`
-def _extracted_from_parse_data_19(inst, ringbuffer):
+def _log_exception(inst, ringbuffer):
     print(inst)
     print("-----")
     print(ringbuffer)

@@ -1,5 +1,6 @@
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
 from enum import Enum
+from typing import Tuple
 from han_utils import hexify, bytes_printable
 
 
@@ -10,6 +11,7 @@ class DataType(Enum):
     DOUBLE_LONG = 5
     DOUBLE_LONG_UNSIGNED = 6
     OCTET_STRING = 9
+    VISIBLE_STRING = 10
     UTF8_STRING = 12
     INTEGER = 15
     LONG = 16
@@ -54,7 +56,7 @@ def strip_type_length(data):
         del data[:2]
 
 
-def whatsit(data):
+def whatsit(data) -> Tuple[DataType, int]:
     noof_elements = 0
     complex_data_type = DataType(data[0])
 
@@ -170,26 +172,108 @@ def the_payload(byte_data):
     return "<Done."
 
 
-def decode_struct(elems, byte_data):
-    print(f"decoding struct  .>>>  {hexify(byte_data[:25], breakit=False)}")
-    retval_hex = ""
-    retval_str = ""
+def extract_visible_string(byte_data):
+    print("\n\nvisible string")
+    _, length = whatsit(byte_data)
 
-    for _ in range(elems):
-        what, length = whatsit(byte_data)
-        print(f"ds - What: {what} - length:{length}")
-        retval_hex += hexify(byte_data[:2])
-        retval_str += bytes_printable(byte_data[:2])
-        strip_type_length(byte_data)
+    # code, length, <length bytes of data> ==> length + 2
+    hstr = hexify(byte_data[: length + 2])
+    str_str = bytes_printable(byte_data[: length + 2])
+    print(hexify(byte_data[:40], breakit=False))
+    del byte_data[: length + 2]
+    print(hexify(byte_data[:40], breakit=False))
+    print("^^7^^77^7777^^^^")
+    return hstr, str_str
 
-        print(f"Now >>> retval_hex:{retval_hex} <-----> {retval_str}")
-        print("Then add data")
-        retval_hex += f" Data: {hexify(byte_data[:length])}"
-        retval_str += f"{bytes_printable(byte_data[:length])}"
-        print(f"Now >>> retval_hex: {retval_hex} <-----> {retval_str}")
-        print(f"Aremainder: {hexify(byte_data[:40])}")
-        del byte_data[:length]
-        print(f"Bremainder: {hexify(byte_data[:40])}")
+
+def extract_octet_string(byte_data):
+    print("octet string, borrow from visible_string...")
+    return extract_visible_string(byte_data)
+
+
+def extract_double(byte_data):
+    print("\n\ndouble - four bytes")
+    retval_hex = hexify(byte_data[1:5])
+    retval_str = "d d d d"
+    del byte_data[:5]
+
+    return retval_hex, retval_str
+
+
+def extract_int(byte_data):
+    retval_hex = hexify(byte_data[:2])
+    retval_str = f"i {byte_data[1]}"
+    del byte_data[:2]
+    return retval_hex, retval_str
+
+
+def extract_long(byte_data):
+    retval_hex = hexify(byte_data[:3])
+    retval_str = f"L {byte_data[1:2]}"
+    del byte_data[:3]
+    return retval_hex, retval_str
+
+
+def extract_enum(byte_data):
+    retval_hex = hexify(byte_data[:2])
+    retval_str = f" {PhysicalUnits(byte_data[1])}"
+
+    del byte_data[:2]
+    return retval_hex, retval_str
+
+
+def extract_next_basic_data(byte_data, retval_hex, retval_str):
+    retval_h = ""
+    retval_s = ""
+    print(f"extract_next_basic_data - {hexify(byte_data[:10])}")
+    data_type = DataType(byte_data[0])
+    print(f"Found data type: {data_type.name}")
+    match data_type:
+        case DataType.OCTET_STRING:
+            retval_h, retval_s = extract_octet_string(byte_data)
+        case DataType.VISIBLE_STRING:
+            retval_h, retval_s = extract_visible_string(byte_data)
+        case DataType.DOUBLE_LONG_UNSIGNED:
+            retval_h, retval_s = extract_double(byte_data)
+        case DataType.INTEGER:
+            retval_h, retval_s = extract_int(byte_data)
+        case DataType.LONG_UNSIGNED:
+            retval_h, retval_s = extract_long(byte_data)
+        case DataType.ENUM:
+            retval_h, retval_s = extract_enum(byte_data)
+
+        case _:
+            print(f"get_next_basic_data  type is: {DataType(byte_data[0])} because: {hexify(byte_data[:10])}")
+            return data_type
+
+    print(f"Basic data ({data_type.name}): hex:{retval_h}  <===> str:{retval_s}")
+    retval_hex += retval_h
+    retval_str += retval_s
+    return data_type
+
+
+def decode_struct(elems, byte_data, retval_hex="", retval_str="", depth=0):
+    dpth = depth
+    print(f"decoding struct of {elems} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
+
+    i = 0
+    while i < elems:
+        print(f"inner struct elem no (i): {i}")
+        print(f"Decode new element of struct... - depth: {dpth}... remainder: {hexify(byte_data[:25], breakit=False)}")
+        next_data_type = extract_next_basic_data(byte_data, retval_hex, retval_str)
+        if next_data_type == DataType.STRUCTURE:
+            _, length = whatsit(byte_data)
+            retval_hex += hexify(byte_data[:2])
+            retval_str += bytes_printable(byte_data[:2])
+            del byte_data[:2]
+            dpth += 1
+            h, s = decode_struct(length, byte_data, depth=dpth)
+            retval_hex += h
+            retval_str += s
+            dpth -= 1
+        else:
+            print(f"Just handled data of type: {next_data_type.name}")
+        i += 1
 
     return retval_hex, retval_str
 
@@ -197,17 +281,23 @@ def decode_struct(elems, byte_data):
 def decode_row(byte_data):
     print(f"ROW .... decoding ... {hexify(byte_data, breakit=False)}....")
     retval_str = ""
-    what, elems = whatsit(byte_data)
-    print(f"it is  a {what}, of {elems} items")
+    row_type, elems = whatsit(byte_data)
+    print(f"it is a {row_type}, of {elems} items")
     retval_hex = hexify(byte_data[:2])
     retval_str = bytes_printable(byte_data[:2])
     strip_type_length(byte_data)
 
-    if what == DataType.STRUCTURE:
-        for _ in range(elems):
+    if row_type == DataType.STRUCTURE:
+        j = 0
+        while j < elems:
+            print(f"outer struct counter (j): {j}")
             retval_h, retval_s = decode_struct(elems, byte_data)
             retval_hex += retval_h
             retval_str += retval_s
+            print(f"ROW so far> ==>{retval_hex} <==> {retval_str} (j={j}) <====== {hexify(byte_data[:20])}")
+            j += 1
+    else:
+        print(f"Done: {hexify(byte_data)}")
 
     print(f"ROW/RESULT===>{retval_hex} <==> {retval_str}")
 
@@ -292,6 +382,7 @@ def hdlc(byte_data):
     _type_
         _description_
     """
+    print("\n\n\nHDLC\n\n\n")
     retval = "hdlc>"
     for ix in range(12):
         s = " %02x" % (byte_data[ix])

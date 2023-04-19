@@ -1,10 +1,12 @@
 """HAN port tester."""
+# pylint: max-line-length=240
+# pylint: disable=line-too-long
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
 import os.path
 import re
 import sys
 from comport import get_comport
-from han_utils import get_now, printable_byte, simple_print_byte_array
+from han_utils import get_now, printable_byte
 from reader import read_data_from_serial_port
 
 # from hdlc import contains_full_message, extract_next_message
@@ -33,7 +35,7 @@ def parse_command_line(options):
     options["file_name"] = None
     for a in sys.argv:
         if a == "--help":
-            _extracted_from_parse_command_line_5()
+            _print_help()
         elif a == "--version":
             print(f"VERSION: {CURRENT_VERSION}")
             exit(0)
@@ -55,8 +57,7 @@ def parse_command_line(options):
             exit(0)
 
 
-# TODO Rename this here and in `parse_command_line`
-def _extracted_from_parse_command_line_5():
+def _print_help():
     print("===================================================")
     print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
     print("===================================================")
@@ -180,17 +181,6 @@ def log_ringbuffer(buf):
     ringbuffer_log.write(get_simple_print_byte_array(buf))
     rawlogfile_bytes.write(get_simple_print_byte_array(buf))
     ringbuffer_log.write("\n")
-
-
-# TODO Rename this here and in `parse_data`
-# def _extracted_from_parse_data_19(inst, ringbuffer):
-#     print(inst)
-#     print("-----")
-#     print(ringbuffer)
-#     log_file.write("Exception in main while loop")
-#     log_file.write(str(type(inst)))  # type: ignore
-#     log_file.write(str(inst.args))  # type: ignore
-#     log_file.write(str(inst))  # type: ignore
 
 
 # def read_data_from_serial_port(serial_port):
