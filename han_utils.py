@@ -7,18 +7,18 @@ def get_now():
     return f'{[datetime.datetime.now().strftime("%a, %d %B %Y %H:%M:%S")]}'
 
 
-def get_simple_print_byte_array(byte_data):
-    outs = ""
-    for ix in range(len(byte_data)):
-        s = " %02x" % (byte_data[ix])
-        if (ix + 1) % 20 == 0:
-            s += "\n"
-        outs += s
-    return outs
+# def get_simple_print_byte_array(byte_data):
+#     outs = ""
+#     for ix in range(len(byte_data)):
+#         s = " %02x" % (byte_data[ix])
+#         if (ix + 1) % 20 == 0:
+#             s += "\n"
+#         outs += s
+#     return outs
 
 
 def simple_print_byte_array(byte_data):
-    outs = get_simple_print_byte_array(byte_data)
+    outs = hexify(byte_data)
     print(f" outs\n{outs}")
     readable_string = ""
     for ix, s in enumerate(byte_data, start=1):
