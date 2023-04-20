@@ -1,6 +1,15 @@
 {
   "[python]": {
-    "editor.defaultFormatter": "ms-python.autopep8"
-  },
-  "python.formatting.provider": "black"
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    },
+    "editor.wordBasedSuggestions": true,
+    "gitlens.codeLens.symbolScopes": ["!Module"],
+    "editor.formatOnType": true,
+    "editor.defaultFormatter": "ms-python.autopep8",
+    "python.formatting.provider": "black"
+  }
 }

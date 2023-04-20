@@ -1,7 +1,9 @@
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
+import contextlib
 from enum import Enum
 from typing import Tuple
-from han_utils import hexify, bytes_printable
+
+from han_utils import bytes_printable, hexify
 
 
 class DataType(Enum):
@@ -79,6 +81,8 @@ def whatsit(data) -> Tuple[DataType, int]:
 
 def the_payload(byte_data):
     """
+    Handle the payload.
+
     "011b"
         01 = Liste
         1b = Antall elementer i lista. I dette tilfellet 27
@@ -124,18 +128,18 @@ def the_payload(byte_data):
     _type_
         _description_
     """
+    print(">>> the_payload()")
     retval = "Xxxx>"
     what, noof_records = whatsit(byte_data)
     print(f"What: {what} - Noof Records: {noof_records}")
     print("%02x %02x" % (byte_data[0], byte_data[1]))
 
-    for ix in range(2):
-        s = " %02x" % (byte_data[ix])
-        retval += s
+    for index in range(2):
+        hex_string = " %02x" % (byte_data[index])
+        retval += hex_string
     retval += "\n"
     retval += "Payl>"
 
-    # del byte_data[:2]
     strip_type_length(byte_data)
 
     # Example of list 1
@@ -252,14 +256,14 @@ def extract_next_basic_data(byte_data, retval_hex, retval_str):
     return data_type
 
 
-def decode_struct(elems, byte_data, retval_hex="", retval_str="", depth=0):
+def decode_struct(noof_elems, byte_data, retval_hex="", retval_str="", depth=0):
     dpth = depth
-    print(f"decoding struct of {elems} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
+    print(f">>> decode_struct() {noof_elems} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
 
-    i = 0
-    while i < elems:
-        print(f"inner struct elem no (i): {i}")
-        print(f"Decode new element of struct... - depth: {dpth}... remainder: {hexify(byte_data[:25], breakit=False)}")
+    for counter in range(noof_elems):
+        print(f"inner struct elem no (i): {counter}")
+        print(
+            f"HANDLE element {counter} of {noof_elems} in struct... - depth: {dpth}... remainder: {hexify(byte_data[:25], breakit=False)}")
         next_data_type = extract_next_basic_data(byte_data, retval_hex, retval_str)
         if next_data_type == DataType.STRUCTURE:
             _, length = whatsit(byte_data)
@@ -273,28 +277,28 @@ def decode_struct(elems, byte_data, retval_hex="", retval_str="", depth=0):
             dpth -= 1
         else:
             print(f"Just handled data of type: {next_data_type.name}")
-        i += 1
+
+    print(f"<<<<< decode_struct() - depth:{dpth}")
 
     return retval_hex, retval_str
 
 
 def decode_row(byte_data):
-    print(f"ROW .... decoding ... {hexify(byte_data, breakit=False)}....")
+    print(f">>> decode_row(): {hexify(byte_data, breakit=False)}....")
     retval_str = ""
-    row_type, elems = whatsit(byte_data)
-    print(f"it is a {row_type}, of {elems} items")
+    row_type, noof_elems = whatsit(byte_data)
+    print(f"it is a {row_type}, of {noof_elems} items")
     retval_hex = hexify(byte_data[:2])
     retval_str = bytes_printable(byte_data[:2])
     strip_type_length(byte_data)
 
     if row_type == DataType.STRUCTURE:
-        j = 0
-        while j < elems:
-            print(f"outer struct counter (j): {j}")
-            retval_h, retval_s = decode_struct(elems, byte_data)
+        for j in range(noof_elems):
+            print(f"outer/ROW struct counter (j): {j}/{range(noof_elems)}")
+            retval_h, retval_s = decode_struct(noof_elems, byte_data)
             retval_hex += retval_h
             retval_str += retval_s
-            print(f"ROW so far> ==>{retval_hex} <==> {retval_str} (j={j}) <====== {hexify(byte_data[:20])}")
+            print(f"ROW so far> ==>{retval_hex} <==> {retval_str} (j={j}) <====== remains: {hexify(byte_data[:20])}")
             j += 1
     else:
         print(f"Done: {hexify(byte_data)}")
@@ -316,6 +320,7 @@ def which_list(this_list):
 def contains_full_message(byte_data):
     """
     See if the byte_data contains a complete list from meter.
+
     The lists start and end with 0x7e.
 
     Parameters
@@ -359,12 +364,12 @@ def contains_full_message(byte_data):
 
 def after_hdlc(byte_data):
     retval = "Xdlc>"
-    for ix in range(6):
-        s = " %02x" % (byte_data[ix])
-        retval += s
+    for index in range(6):
+        string_part = " %02x" % (byte_data[index])
+        retval += string_part
     retval += "\n"
 
-    del byte_data[0:6]
+    del byte_data[:6]
     return retval
 
 
@@ -384,18 +389,19 @@ def hdlc(byte_data):
     """
     print("\n\n\nHDLC\n\n\n")
     retval = "hdlc>"
-    for ix in range(12):
-        s = " %02x" % (byte_data[ix])
+    for index in range(12):
+        s = " %02x" % (byte_data[index])
         retval += s
     retval += "\n"
 
-    del byte_data[0:12]
+    del byte_data[:12]
     return retval
 
 
 def find_start(byte_data):
     """
-    Remove everything from byte stream leading up to the first 0x7e
+    Remove everything from byte stream leading up to the first 0x7e.
+
     :param byte_data:
     :return:
     """
@@ -421,37 +427,13 @@ def extract_next_message(byte_data):
         find_start(byte_data)
 
     the_count = 0
-    while the_count < 2:
-        the_byte = byte_data.pop(0)
-        if the_byte == 0x7E:
-            the_count += 1
-
-        retval.append(the_byte)
-
-    print("Extracted message length: %d" % len(retval))
-    print(f"List: {which_list(retval)}")
-
-    return retval
-
-
-def extract_next_message(byte_data):
-    retval = []
-    if byte_data[0] == 0x7E and byte_data[1] != 0x7E:
-        print(".")
-    else:
-        find_start(byte_data)
-
-    the_count = 0
-    try:
+    with contextlib.suppress(Exception):
         while the_count < 2:
             the_byte = byte_data.pop(0)
             if the_byte == 0x7E:
                 the_count += 1
 
             retval.append(the_byte)
-    except Exception:
-        pass
-
     print("Extracted message length: %d" % len(retval))
     print(f"List: {which_list(retval)}")
 

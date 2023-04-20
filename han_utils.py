@@ -6,6 +6,13 @@ import string
 def get_now():
     return f'{[datetime.datetime.now().strftime("%a, %d %B %Y %H:%M:%S")]}'
 
+# def get_bytes_as_string(ix, num_bytes, input):
+#     i = 0
+#     ret_string = ""
+#     while i < num_bytes:
+#         ret_string += f"{chr(input[ix + i])}"
+#         i += 1
+#     return ret_string
 
 # def get_simple_print_byte_array(byte_data):
 #     outs = ""
@@ -21,10 +28,10 @@ def simple_print_byte_array(byte_data):
     outs = hexify(byte_data)
     print(f" outs\n{outs}")
     readable_string = ""
-    for ix, s in enumerate(byte_data, start=1):
-        if ix % 20 == 0:
+    for index, string_part in enumerate(byte_data, start=1):
+        if index % 20 == 0:
             readable_string += "\n"
-        readable_string += "%-3s" % printable_byte(s)
+        readable_string += "%-3s" % printable_byte(string_part)
 
     print("=== readable ====")
     print(readable_string)
@@ -49,7 +56,7 @@ def printable_byte(one_byte):
     return return_printable
 
 
-def hexify(byte_data, breakit=True):
+def hexify(byte_data, breakit=False):
     hex_string = ""
     for index in range(len(byte_data)):
         byte_as_hex = " %02x" % (byte_data[index])
@@ -70,7 +77,7 @@ def bytes_printable(byte_data):
 
 def find_start(byte_data):
     """
-    Remove everything from byte stream leading up to the first 0x7e
+    Remove everything from byte stream leading up to the first 0x7e.
     :param byte_data:
     :return:
     """

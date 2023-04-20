@@ -1,16 +1,19 @@
 """HAN port tester."""
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
-import serial
-import serial.tools.list_ports as lp
+# pylint: disable=unspecified-encoding
+# import serial
+# import serial.tools.list_ports as lp
 import datetime
 import os.path
 import re
 import string
 import sys
 import time
-from han_utils import bytes_printable, hexify, simple_print_byte_array
-from hdlc import contains_full_message, extract_next_message, hdlc, after_hdlc, the_payload
 
+from comport import get_comport
+from han_utils import hexify, simple_print_byte_array
+from hdlc import (after_hdlc, contains_full_message, extract_next_message,
+                  hdlc, the_payload)
 
 CURRENT_VERSION = "v2.16 - 2022-11-29"
 print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
@@ -89,34 +92,15 @@ def printable(byte_data):
     return outs
 
 
-def read_bytes(serial_port, given_bytes=0):
+def read_bytes(com_port, given_bytes=0):
     num_bytes = 0
     while num_bytes <= given_bytes:
-        num_bytes = serial_port.in_waiting
+        num_bytes = com_port.in_waiting
         # print "in_waiting: %d" % num_bytes
         if num_bytes <= given_bytes:
             time.sleep(1)
-    serialString = serial_port.read(num_bytes)
-    return bytearray(serialString)
-
-
-def get_bytes_as_string(ix, num_bytes, input):
-    i = 0
-    ret_string = ""
-    while i < num_bytes:
-        ret_string += f"{chr(input[ix + i])}"
-        i += 1
-    return ret_string
-
-
-def append0x(str, ix, num_bytes, input):
-    i = 0
-
-    while i < num_bytes and (ix + 1 < len(input)):
-        str += "%02x" % input[ix + i]
-        i += 1
-    str += " "
-    return str
+    serial_string = com_port.read(num_bytes)
+    return bytearray(serial_string)
 
 
 def log_ringbuffer(buf):
@@ -127,32 +111,18 @@ def log_ringbuffer(buf):
     ringbuffer_log.write("\n")
 
 
-# def parse_data(ringbuffer):
-#     # try:
-#     while contains_full_message(ringbuffer):
-#         han_list = extract_next_message(ringbuffer)
-#         printable = bytes_printable(han_list)
-#         hex_string = hexify(han_list)
-#         print(f"hex:\n{hex_string}")
-#         print(f"print:\n{printable}")
-#     # except Exception as inst:
-#     #     _extracted_from_parse_data_19(inst, ringbuffer)
-
-
-# TODO Rename this here and in `parse_data`
-def _log_exception(inst, ringbuffer):
-    print(inst)
-    print("-----")
-    print(ringbuffer)
-    log_file.write("Exception in main while loop")
-    log_file.write(str(type(inst)))  # type: ignore
-    log_file.write(str(inst.args))  # type: ignore
-    log_file.write(str(inst))  # type: ignore
+# def _log_exception(inst, ringbuffer):
+#     print(inst)
+#     print("-----")
+#     print(ringbuffer)
+#     log_file.write("Exception in main while loop")
+#     log_file.write(str(type(inst)))  # type: ignore
+#     log_file.write(str(inst.args))  # type: ignore
+#     log_file.write(str(inst))  # type: ignore
 
 
 def parse_data(ringbuffer):
     outs2 = ""
-    # try:
     print("continas")
     while contains_full_message(ringbuffer):
         next_message = extract_next_message(ringbuffer)
@@ -164,9 +134,6 @@ def parse_data(ringbuffer):
         print(f"outs2 ====>\n{outs2}\n=====")
         log_file.write(get_now())
         log_file.write(raw_data)
-    # except Exception as inst:
-    #     print(f"Exception\nouts so far:\n {outs2}")
-    #     _extracted_from_parse_data_19(inst, ringbuffer)
 
 
 def read_data_from_serial_port(serial_port):

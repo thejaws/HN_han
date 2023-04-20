@@ -23,9 +23,13 @@ __pycache__/comport.cpython-311.pyc
 __pycache__/han_utils.cpython-311.pyc
 __pycache__/hdlc.cpython-311.pyc
 __pycache__/reader.cpython-311.pyc
+__pycache__/*
 .gitignore
 a.out
 rawlog.txt
 rawlogfile_binary.txt
 rawlogfile_bytes
 ringbuffer.txt
+reader.py
+__pycache__/comport.cpython-310.pyc
+__pycache__/han_utils.cpython-310.pyc
