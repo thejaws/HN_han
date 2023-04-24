@@ -30,6 +30,9 @@ class DataType(Enum):
     STRUCTURE = 2
     COMPACT_ARRAY = 19
 
+    # default value
+    UNKNOWN = 666
+
 
 class PhysicalUnits(Enum):
     POWER = 27
@@ -41,35 +44,42 @@ class PhysicalUnits(Enum):
     VOLTAGE = 35
 
 
-def strip_type_length(data):
-    complex_data_type, _ = whatsit(data)
-    hard_coded_length = False
+# def strip_type_length(data):
+#     complex_data_type, _ = whatsit(data)
+#     hard_coded_length = False
 
-    if complex_data_type in [DataType.DOUBLE_LONG, DataType.DOUBLE_LONG_UNSIGNED]:
-        hard_coded_length = True
-    elif complex_data_type in [DataType.INTEGER, DataType.UNSIGNED]:
-        hard_coded_length = True
-    elif complex_data_type in [DataType.LONG]:
-        hard_coded_length = True
+#     if complex_data_type in [DataType.DOUBLE_LONG, DataType.DOUBLE_LONG_UNSIGNED]:
+#         hard_coded_length = True
+#     elif complex_data_type in [DataType.INTEGER, DataType.UNSIGNED]:
+#         hard_coded_length = True
+#     elif complex_data_type in [DataType.LONG]:
+#         hard_coded_length = True
 
-    if hard_coded_length:
-        del data[:1]
-    else:
-        del data[:2]
+#     if hard_coded_length:
+#         del data[:1]
+#     else:
+#         del data[:2]
 
 
 def whatsit(data) -> Tuple[DataType, int]:
+    print(f"whatsit, data: {hexify(data)}")
     noof_elements = 0
-    complex_data_type = DataType(data[0])
+    complex_data_type = DataType.UNKNOWN
+    try:
+        complex_data_type = DataType(data[0])
 
-    if complex_data_type in [DataType.DOUBLE_LONG, DataType.DOUBLE_LONG_UNSIGNED]:
-        noof_elements = 4
-    elif complex_data_type in [DataType.INTEGER, DataType.UNSIGNED]:
-        noof_elements = 1
-    elif complex_data_type in [DataType.LONG]:
-        noof_elements = 2
-    else:
-        noof_elements = data[1]
+        if complex_data_type in [DataType.DOUBLE_LONG, DataType.DOUBLE_LONG_UNSIGNED]:
+            noof_elements = 4
+        elif complex_data_type in [DataType.INTEGER, DataType.UNSIGNED]:
+            noof_elements = 1
+        elif complex_data_type in [DataType.LONG]:
+            noof_elements = 2
+        else:
+            print(f"Whatsit else....: {complex_data_type.name}")
+            noof_elements = data[1]
+    except ValueError as ve:
+        print(f"GUESSING that it is not a known data type:\n{ve}")
+        print("XXX\n\nProbably end of List")
 
     return complex_data_type, noof_elements
 
@@ -132,15 +142,14 @@ def the_payload(byte_data):
     retval = "Xxxx>"
     what, noof_records = whatsit(byte_data)
     print(f"What: {what} - Noof Records: {noof_records}")
-    print("%02x %02x" % (byte_data[0], byte_data[1]))
+    print(f"{hexify(byte_data[:2])}")
 
-    for index in range(2):
-        hex_string = " %02x" % (byte_data[index])
-        retval += hex_string
+    retval += hexify(byte_data[:2])
     retval += "\n"
     retval += "Payl>"
 
-    strip_type_length(byte_data)
+    # strip_type_length(byte_data)
+    del byte_data[:2]
 
     # Example of list 1
     # 7e a0 2a 41 08 83 13 04 13 e6 e7 00 0f 40 00 00 00 00
@@ -172,14 +181,14 @@ def the_payload(byte_data):
     for i in range(noof_records):
         print(f"Processing ROW/record {i}")
         retval_hex, retval_str = decode_row(byte_data)
+        print(f"XXXXXXXX\n\nROW/record {i} is processed\n\n\n\n")
+
         print(f"{retval_hex}    {retval_str}")
     return "<Done."
 
 
-def extract_visible_string(byte_data):
-    print("\n\nvisible string")
+def extract_string(byte_data):
     _, length = whatsit(byte_data)
-
     # code, length, <length bytes of data> ==> length + 2
     hstr = hexify(byte_data[: length + 2])
     str_str = bytes_printable(byte_data[: length + 2])
@@ -190,9 +199,13 @@ def extract_visible_string(byte_data):
     return hstr, str_str
 
 
+def extract_visible_string(byte_data):
+    print("Visible string")
+    return extract_string(byte_data)
+
+
 def extract_octet_string(byte_data):
-    print("octet string, borrow from visible_string...")
-    return extract_visible_string(byte_data)
+    return extract_string(byte_data)
 
 
 def extract_double(byte_data):
@@ -256,22 +269,24 @@ def extract_next_basic_data(byte_data, retval_hex, retval_str):
     return data_type
 
 
-def decode_struct(noof_elems, byte_data, retval_hex="", retval_str="", depth=0):
+def decode_struct(byte_data, retval_hex="", retval_str="", depth=0):
+    print(f">>> decode_struct() depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
+    _, noof_elements = whatsit(byte_data)
+    del byte_data[:2]
     dpth = depth
-    print(f">>> decode_struct() {noof_elems} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
+    print(f">>> decode_struct() {noof_elements} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
 
-    for counter in range(noof_elems):
+    for counter in range(noof_elements):
         print(f"inner struct elem no (i): {counter}")
         print(
-            f"HANDLE element {counter} of {noof_elems} in struct... - depth: {dpth}... remainder: {hexify(byte_data[:25], breakit=False)}")
+            f"HANDLE element {counter} of {noof_elements} in struct... - depth: {dpth}... remainder: {hexify(byte_data[:25], breakit=False)}")
         next_data_type = extract_next_basic_data(byte_data, retval_hex, retval_str)
         if next_data_type == DataType.STRUCTURE:
-            _, length = whatsit(byte_data)
             retval_hex += hexify(byte_data[:2])
             retval_str += bytes_printable(byte_data[:2])
             del byte_data[:2]
             dpth += 1
-            h, s = decode_struct(length, byte_data, depth=dpth)
+            h, s = decode_struct(byte_data, depth=dpth)
             retval_hex += h
             retval_str += s
             dpth -= 1
@@ -290,12 +305,11 @@ def decode_row(byte_data):
     print(f"it is a {row_type}, of {noof_elems} items")
     retval_hex = hexify(byte_data[:2])
     retval_str = bytes_printable(byte_data[:2])
-    strip_type_length(byte_data)
 
     if row_type == DataType.STRUCTURE:
         for j in range(noof_elems):
             print(f"outer/ROW struct counter (j): {j}/{range(noof_elems)}")
-            retval_h, retval_s = decode_struct(noof_elems, byte_data)
+            retval_h, retval_s = decode_struct(byte_data)
             retval_hex += retval_h
             retval_str += retval_s
             print(f"ROW so far> ==>{retval_hex} <==> {retval_str} (j={j}) <====== remains: {hexify(byte_data[:20])}")
