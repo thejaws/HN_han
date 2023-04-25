@@ -29,7 +29,7 @@ def get_com_port_name():
 def get_comport(comport_name=None):
     port = None
     print(f"given comport >>> {comport_name}")
-    comport_name = "/dev/tty.usbserial-0001"
+    # comport_name = "/dev/tty.usbserial-0001"
     if comport_name is None:
         comport_name, description = get_com_port_name()
     else:

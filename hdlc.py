@@ -28,7 +28,7 @@ class DataType(Enum):
     # complex types ----
     ARRAY = 1
     STRUCTURE = 2
-    COMPACT_ARRAY = 19
+    OOMPACT_ARRAY = 19
 
     # default value
     UNKNOWN = 666
@@ -44,21 +44,33 @@ class PhysicalUnits(Enum):
     VOLTAGE = 35
 
 
-# def strip_type_length(data):
-#     complex_data_type, _ = whatsit(data)
-#     hard_coded_length = False
+class OneList:
+    def __init__(self):
+        self.records = []
 
-#     if complex_data_type in [DataType.DOUBLE_LONG, DataType.DOUBLE_LONG_UNSIGNED]:
-#         hard_coded_length = True
-#     elif complex_data_type in [DataType.INTEGER, DataType.UNSIGNED]:
-#         hard_coded_length = True
-#     elif complex_data_type in [DataType.LONG]:
-#         hard_coded_length = True
+    def add_row(self, row):
+        self.records.append(row)
 
-#     if hard_coded_length:
-#         del data[:1]
-#     else:
-#         del data[:2]
+    def __str__(self) -> str:
+        retval = ""
+        for s in self.records:
+            retval += f"\n{s}"
+        return retval
+
+
+class OneRecord:
+    def __init__(self):
+        self.hex = ''
+        self.printable = ''
+        self.decoded = ''
+
+    def add_data(self, hex_string, ascii_string, text):
+        self.hex += f"    {hex_string}"
+        self.printable += f"    {ascii_string}"
+        self.decoded += text
+
+    def __str__(self) -> str:
+        return f"{self.hex}   {self.printable}   {self.decoded}"
 
 
 def whatsit(data) -> Tuple[DataType, int]:
@@ -77,16 +89,11 @@ def whatsit(data) -> Tuple[DataType, int]:
         else:
             print(f"Whatsit else....: {complex_data_type.name}")
             noof_elements = data[1]
-    except ValueError as ve:
-        print(f"GUESSING that it is not a known data type:\n{ve}")
-        print("XXX\n\nProbably end of List")
+    except ValueError as value_error:
+        print(f"GUESSING that it is not a known data type:\n{value_error}")
+        print("XXX\n\nProbably end of List?")
 
     return complex_data_type, noof_elements
-
-
-# def details(data):
-#     data_type = data[0]
-#     noof_elements = data[1]
 
 
 def the_payload(byte_data):
@@ -178,12 +185,23 @@ def the_payload(byte_data):
     #  ff 10 00 00 02 02 0f ff 16 21 02 03 09 06 01 00 20 07 00 ff
     #  12 09 6b 02 02 0f ff 16 23 73 00 7e
 
+    current_list = OneList()
     for i in range(noof_records):
         print(f"Processing ROW/record {i}")
-        retval_hex, retval_str = decode_row(byte_data)
+        retval_hex, retval_str, the_row = decode_row(byte_data)
+        print(f"<<ROW>> {the_row}")
+        current_list.add_row(the_row)
         print(f"XXXXXXXX\n\nROW/record {i} is processed\n\n\n\n")
 
         print(f"{retval_hex}    {retval_str}")
+
+    print("======================")
+    print("======================")
+    print("======================")
+    print(current_list)
+    print("======================")
+    print("======================")
+    print("======================")
     return "<Done."
 
 
@@ -212,6 +230,8 @@ def extract_double(byte_data):
     print("\n\ndouble - four bytes")
     retval_hex = hexify(byte_data[1:5])
     retval_str = "d d d d"
+    # byte_data[0] is the "double"-marker
+    retval = (byte_data[1] << 24) + (byte_data[2] << 16) + (byte_data[3] << 8) + byte_data[4]
     del byte_data[:5]
 
     return retval_hex, retval_str
@@ -239,10 +259,9 @@ def extract_enum(byte_data):
     return retval_hex, retval_str
 
 
-def extract_next_basic_data(byte_data, retval_hex, retval_str):
+def extract_next_basic_data(byte_data, current_row, retval_hex, retval_str):
     retval_h = ""
     retval_s = ""
-    print(f"extract_next_basic_data - {hexify(byte_data[:10])}")
     data_type = DataType(byte_data[0])
     print(f"Found data type: {data_type.name}")
     match data_type:
@@ -254,6 +273,8 @@ def extract_next_basic_data(byte_data, retval_hex, retval_str):
             retval_h, retval_s = extract_double(byte_data)
         case DataType.INTEGER:
             retval_h, retval_s = extract_int(byte_data)
+        case DataType.LONG:
+            retval_h, retval_s = extract_long(byte_data)
         case DataType.LONG_UNSIGNED:
             retval_h, retval_s = extract_long(byte_data)
         case DataType.ENUM:
@@ -262,6 +283,7 @@ def extract_next_basic_data(byte_data, retval_hex, retval_str):
         case _:
             print(f"get_next_basic_data  type is: {DataType(byte_data[0])} because: {hexify(byte_data[:10])}")
             return data_type
+    current_row.add_data(retval_h, retval_s, data_type.name)
 
     print(f"Basic data ({data_type.name}): hex:{retval_h}  <===> str:{retval_s}")
     retval_hex += retval_h
@@ -269,24 +291,23 @@ def extract_next_basic_data(byte_data, retval_hex, retval_str):
     return data_type
 
 
-def decode_struct(byte_data, retval_hex="", retval_str="", depth=0):
-    print(f">>> decode_struct() depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
+def decode_struct(byte_data, current_row, retval_hex="", retval_str="", depth=0):
+    # print(f">>> decode_struct() depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
     _, noof_elements = whatsit(byte_data)
     del byte_data[:2]
     dpth = depth
     print(f">>> decode_struct() {noof_elements} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
 
     for counter in range(noof_elements):
-        print(f"inner struct elem no (i): {counter}")
         print(
             f"HANDLE element {counter} of {noof_elements} in struct... - depth: {dpth}... remainder: {hexify(byte_data[:25], breakit=False)}")
-        next_data_type = extract_next_basic_data(byte_data, retval_hex, retval_str)
+        next_data_type = extract_next_basic_data(byte_data, current_row, retval_hex, retval_str)
         if next_data_type == DataType.STRUCTURE:
             retval_hex += hexify(byte_data[:2])
             retval_str += bytes_printable(byte_data[:2])
             del byte_data[:2]
             dpth += 1
-            h, s = decode_struct(byte_data, depth=dpth)
+            h, s = decode_struct(byte_data, current_row, depth=dpth, retval_hex=retval_hex, retval_str=retval_str)
             retval_hex += h
             retval_str += s
             dpth -= 1
@@ -300,26 +321,43 @@ def decode_struct(byte_data, retval_hex="", retval_str="", depth=0):
 
 def decode_row(byte_data):
     print(f">>> decode_row(): {hexify(byte_data, breakit=False)}....")
-    retval_str = ""
-    row_type, noof_elems = whatsit(byte_data)
-    print(f"it is a {row_type}, of {noof_elems} items")
-    retval_hex = hexify(byte_data[:2])
-    retval_str = bytes_printable(byte_data[:2])
+    retval_hex = 'NOT STARTED '
+    retval_str = 'NOT STARTED '
+    current_row = OneRecord()
+    try:
+        retval_str = ""
+        row_type, noof_elems = whatsit(byte_data)
+        text = f"it is a {row_type}, of {noof_elems} items"
+        print(text)
 
-    if row_type == DataType.STRUCTURE:
-        for j in range(noof_elems):
-            print(f"outer/ROW struct counter (j): {j}/{range(noof_elems)}")
-            retval_h, retval_s = decode_struct(byte_data)
-            retval_hex += retval_h
-            retval_str += retval_s
-            print(f"ROW so far> ==>{retval_hex} <==> {retval_str} (j={j}) <====== remains: {hexify(byte_data[:20])}")
-            j += 1
-    else:
-        print(f"Done: {hexify(byte_data)}")
+        retval_hex = hexify(byte_data[:2])
+        retval_str = bytes_printable(byte_data[:2])
+        current_row.add_data(retval_hex, retval_str, text)
 
-    print(f"ROW/RESULT===>{retval_hex} <==> {retval_str}")
+        if row_type == DataType.STRUCTURE:
+            for j in range(noof_elems):
+                print(f"ROW number: {j}")
+                retval_h, retval_s = decode_struct(byte_data, current_row)
+                retval_hex += retval_h
+                retval_str += retval_s
+                print(
+                    f"ROW so far> ==>{retval_hex} <==> {retval_str} (j={j}) <====== remains: {hexify(byte_data[:20])}")
+                j += 1
+        elif row_type == DataType.UNKNOWN and byte_data[2] == 0x7e:
+            print(f"End of list for: {hexify(byte_data)}")
+        else:
+            print(f"Done: {hexify(byte_data)}")
 
-    return retval_hex, retval_str
+        print(f"ROW/RESULT===>")
+        print(f"ROW/RESULT===> {retval_hex} <==> {retval_str}")
+        print(f"ROW/RESULT===>")
+    except Exception as ee_ee:
+        print(f"ROW/RESULT===>")
+        print(f"Exception in main loop: {ee_ee}")
+        print(f"ROW/RESULT===> {retval_hex} <==> {retval_str}")
+        print(f"ROW/RESULT===>")
+
+    return retval_hex, retval_str, current_row
 
 
 def which_list(this_list):
