@@ -1,5 +1,6 @@
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
 import contextlib
+import traceback
 from enum import Enum
 from typing import Tuple
 
@@ -64,10 +65,10 @@ class OneRecord:
         self.printable = ''
         self.decoded = ''
 
-    def add_data(self, hex_string, ascii_string, text):
+    def add_data(self, hex_string, ascii_string, value):
         self.hex += f"    {hex_string}"
         self.printable += f"    {ascii_string}"
-        self.decoded += text
+        self.decoded += f" {value} "
 
     def __str__(self) -> str:
         return f"{self.hex}   {self.printable}   {self.decoded}"
@@ -214,7 +215,7 @@ def extract_string(byte_data):
     del byte_data[: length + 2]
     print(hexify(byte_data[:40], breakit=False))
     print("^^7^^77^7777^^^^")
-    return hstr, str_str
+    return hstr, str_str, str_str
 
 
 def extract_visible_string(byte_data):
@@ -223,6 +224,7 @@ def extract_visible_string(byte_data):
 
 
 def extract_octet_string(byte_data):
+    print("Octet string")
     return extract_string(byte_data)
 
 
@@ -231,24 +233,25 @@ def extract_double(byte_data):
     retval_hex = hexify(byte_data[1:5])
     retval_str = "d d d d"
     # byte_data[0] is the "double"-marker
-    retval = (byte_data[1] << 24) + (byte_data[2] << 16) + (byte_data[3] << 8) + byte_data[4]
+    retval_v = (byte_data[1] << 24) + (byte_data[2] << 16) + (byte_data[3] << 8) + byte_data[4]
     del byte_data[:5]
 
-    return retval_hex, retval_str
+    return retval_hex, retval_str, retval_v
 
 
 def extract_int(byte_data):
     retval_hex = hexify(byte_data[:2])
     retval_str = f"i {byte_data[1]}"
     del byte_data[:2]
-    return retval_hex, retval_str
+    return retval_hex, retval_str, byte_data[1]
 
 
 def extract_long(byte_data):
     retval_hex = hexify(byte_data[:3])
     retval_str = f"L {byte_data[1:2]}"
+    retval_v = (byte_data[2] << 8) + byte_data[1]
     del byte_data[:3]
-    return retval_hex, retval_str
+    return retval_hex, retval_str, retval_v
 
 
 def extract_enum(byte_data):
@@ -256,34 +259,36 @@ def extract_enum(byte_data):
     retval_str = f" {PhysicalUnits(byte_data[1])}"
 
     del byte_data[:2]
-    return retval_hex, retval_str
+    return retval_hex, retval_str, ''
 
 
 def extract_next_basic_data(byte_data, current_row, retval_hex, retval_str):
     retval_h = ""
     retval_s = ""
+    retval_v = ""
     data_type = DataType(byte_data[0])
     print(f"Found data type: {data_type.name}")
     match data_type:
         case DataType.OCTET_STRING:
-            retval_h, retval_s = extract_octet_string(byte_data)
+            retval_h, retval_s, retval_v = extract_octet_string(byte_data)
         case DataType.VISIBLE_STRING:
-            retval_h, retval_s = extract_visible_string(byte_data)
+            retval_h, retval_s, retval_v = extract_visible_string(byte_data)
         case DataType.DOUBLE_LONG_UNSIGNED:
-            retval_h, retval_s = extract_double(byte_data)
+            retval_h, retval_s, retval_v = extract_double(byte_data)
         case DataType.INTEGER:
-            retval_h, retval_s = extract_int(byte_data)
+            retval_h, retval_s, retval_v = extract_int(byte_data)
         case DataType.LONG:
-            retval_h, retval_s = extract_long(byte_data)
+            retval_h, retval_s, retval_v = extract_long(byte_data)
         case DataType.LONG_UNSIGNED:
-            retval_h, retval_s = extract_long(byte_data)
+            retval_h, retval_s, retval_v = extract_long(byte_data)
         case DataType.ENUM:
-            retval_h, retval_s = extract_enum(byte_data)
+            retval_h, retval_s, retval_v = extract_enum(byte_data)
 
         case _:
             print(f"get_next_basic_data  type is: {DataType(byte_data[0])} because: {hexify(byte_data[:10])}")
             return data_type
-    current_row.add_data(retval_h, retval_s, data_type.name)
+
+    current_row.add_data(retval_h, retval_s, retval_v)
 
     print(f"Basic data ({data_type.name}): hex:{retval_h}  <===> str:{retval_s}")
     retval_hex += retval_h
@@ -299,8 +304,6 @@ def decode_struct(byte_data, current_row, retval_hex="", retval_str="", depth=0)
     print(f">>> decode_struct() {noof_elements} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
 
     for counter in range(noof_elements):
-        print(
-            f"HANDLE element {counter} of {noof_elements} in struct... - depth: {dpth}... remainder: {hexify(byte_data[:25], breakit=False)}")
         next_data_type = extract_next_basic_data(byte_data, current_row, retval_hex, retval_str)
         if next_data_type == DataType.STRUCTURE:
             retval_hex += hexify(byte_data[:2])
@@ -348,12 +351,13 @@ def decode_row(byte_data):
         else:
             print(f"Done: {hexify(byte_data)}")
 
-        print(f"ROW/RESULT===>")
-        print(f"ROW/RESULT===> {retval_hex} <==> {retval_str}")
-        print(f"ROW/RESULT===>")
+        print(f"1ROW/RESULT===>")
+        # print(f"ROW/RESULT===> {retval_hex} <==> {retval_str}")
+        print(f"2ROW/RESULT===>")
     except Exception as ee_ee:
         print(f"ROW/RESULT===>")
-        print(f"Exception in main loop: {ee_ee}")
+        print(f"Exception in main loop: {ee_ee}\n{ee_ee.__class__}")
+        traceback.print_exc()
         print(f"ROW/RESULT===> {retval_hex} <==> {retval_str}")
         print(f"ROW/RESULT===>")
 
