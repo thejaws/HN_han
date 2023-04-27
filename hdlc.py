@@ -266,6 +266,7 @@ def extract_next_basic_data(byte_data, current_row, retval_hex, retval_str):
     retval_h = ""
     retval_s = ""
     retval_v = ""
+    print(f"About to extract data from: {hexify(byte_data)}")
     data_type = DataType(byte_data[0])
     print(f"Found data type: {data_type.name}")
     match data_type:
@@ -343,8 +344,6 @@ def decode_row(byte_data):
                 retval_h, retval_s = decode_struct(byte_data, current_row)
                 retval_hex += retval_h
                 retval_str += retval_s
-                print(
-                    f"ROW so far> ==>{retval_hex} <==> {retval_str} (j={j}) <====== remains: {hexify(byte_data[:20])}")
                 j += 1
         elif row_type == DataType.UNKNOWN and byte_data[2] == 0x7e:
             print(f"End of list for: {hexify(byte_data)}")
