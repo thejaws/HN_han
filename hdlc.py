@@ -1,10 +1,16 @@
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
 import contextlib
+import datetime
 import traceback
 from enum import Enum
 from typing import Tuple
 
 from han_utils import bytes_printable, hexify
+
+
+def logit(msg):
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")
+    print(f"_ {now} _: {msg}")
 
 
 class DataType(Enum):
@@ -33,6 +39,7 @@ class DataType(Enum):
 
     # default value
     UNKNOWN = 666
+    HDLC = 667
 
 
 class PhysicalUnits(Enum):
@@ -48,14 +55,25 @@ class PhysicalUnits(Enum):
 class OneList:
     def __init__(self):
         self.records = []
+        self.last_row = None
+        self.hdlc_header = ''
+        self.hdlc_end = ''
 
     def add_row(self, row):
+        self.last_row = row
         self.records.append(row)
 
+    def get_last_row(self):
+        return self.last_row
+
     def __str__(self) -> str:
-        retval = ""
-        for s in self.records:
-            retval += f"\n{s}"
+        header = f"List with {len(self.records)} records\n"
+        body = ""
+        i = 0
+        for r in self.records:
+            body += f"{i}: {r}\n"
+            i += 1
+        retval = header + body
         return retval
 
 
@@ -64,8 +82,16 @@ class OneRecord:
         self.hex = ''
         self.printable = ''
         self.decoded = ''
+        self.parent = None
+
+    def set_parent(self, parent):
+        self.parent = parent
+
+    def get_parent(self):
+        return self.parent
 
     def add_data(self, hex_string, ascii_string, value):
+        print(f"OneRecord.add_data -> \n{hex_string}###{ascii_string}###{value}")
         self.hex += f"    {hex_string}"
         self.printable += f"    {ascii_string}"
         self.decoded += f" {value} "
@@ -75,7 +101,7 @@ class OneRecord:
 
 
 def whatsit(data) -> Tuple[DataType, int]:
-    print(f"whatsit, data: {hexify(data)}")
+    logit(f"whatsit, data: {hexify(data)}")
     noof_elements = 0
     complex_data_type = DataType.UNKNOWN
     try:
@@ -91,8 +117,12 @@ def whatsit(data) -> Tuple[DataType, int]:
             print(f"Whatsit else....: {complex_data_type.name}")
             noof_elements = data[1]
     except ValueError as value_error:
-        print(f"GUESSING that it is not a known data type:\n{value_error}")
-        print("XXX\n\nProbably end of List?")
+        pass
+        # print(f"GUESSING that it is not a known data type:\n{value_error}")
+        # print("XXX\n\nProbably end of List?")
+
+    if complex_data_type == DataType.UNKNOWN and len(data) == 3 and data[2] == 0x7e:
+        return DataType.HDLC, noof_elements
 
     return complex_data_type, noof_elements
 
@@ -188,18 +218,17 @@ def the_payload(byte_data):
 
     current_list = OneList()
     for row_num in range(noof_records):
-        print(f"Processing ROW {row_num}")
-        the_row = decode_row(byte_data)
-        print(f"<<ROW>> {the_row}")
+        the_row = OneRecord()
+        the_row.set_parent(current_list)
+
+        logit(f"Processing ROW {row_num}")
+        decode_row(byte_data, the_row)
+        logit(f"<<ROW>> {the_row}")
         current_list.add_row(the_row)
-        print(f"XXXXXXXX\n\nROW/record {row_num} is processed\n\n\n\n")
+        logit(f"XXXXXXXX\n\nROW/record {row_num} is processed\n\n\n\n")
 
     print("======================")
-    print("======================")
-    print("======================")
     print(current_list)
-    print("======================")
-    print("======================")
     print("======================")
     return "<Done."
 
@@ -209,11 +238,8 @@ def extract_string(byte_data):
     # code, length, <length bytes of data> ==> length + 2
     hstr = hexify(byte_data[: length + 2])
     str_str = bytes_printable(byte_data[: length + 2])
-    print(hexify(byte_data[:40], breakit=False))
     del byte_data[: length + 2]
-    print(hexify(byte_data[:40], breakit=False))
-    print("^^7^^77^7777^^^^")
-    return hstr, str_str, str_str
+    return hstr, str_str, ''
 
 
 def extract_visible_string(byte_data):
@@ -229,9 +255,9 @@ def extract_octet_string(byte_data):
 def extract_double(byte_data):
     print("\n\ndouble - four bytes")
     retval_hex = hexify(byte_data[:5])
-    retval_str = "D d d d d"
     # byte_data[0] is the "double"-marker
     retval_v = (byte_data[1] << 24) + (byte_data[2] << 16) + (byte_data[3] << 8) + byte_data[4]
+    retval_str = "%d" % (retval_v)
     del byte_data[:5]
 
     return retval_hex, retval_str, retval_v
@@ -239,15 +265,16 @@ def extract_double(byte_data):
 
 def extract_int(byte_data):
     retval_hex = hexify(byte_data[:2])
-    retval_str = f"i {byte_data[1]}"
+    retval_v = byte_data[1]
+    retval_str = "%d" % (retval_v)
     del byte_data[:2]
     return retval_hex, retval_str, byte_data[1]
 
 
 def extract_long(byte_data):
     retval_hex = hexify(byte_data[:3])
-    retval_str = f"L {byte_data[1:2]}"
     retval_v = (byte_data[2] << 8) + byte_data[1]
+    retval_str = "%d" % (retval_v)
     del byte_data[:3]
     return retval_hex, retval_str, retval_v
 
@@ -282,55 +309,68 @@ def extract_next_basic_data(byte_data, current_row):
             retval_h, retval_s, retval_v = extract_long(byte_data)
         case DataType.ENUM:
             retval_h, retval_s, retval_v = extract_enum(byte_data)
-        # case DataType.STRUCTURE:
-        #     retval_h, retval_s, retval_v = decode_struct(byte_data)
-
         case _:
-            print(f"get_next_basic_data  type is: {DataType(byte_data[0])} because: {hexify(byte_data[:10])}")
-            return data_type
+            print("NEXXXXT data type was something else:")
+            if len(byte_data) == 3 and byte_data[2] == 0x7e:
+                print("nexxxxxt / HDLC")
+                return DataType.HDLC
+            else:
+                print(f"get_next_basic_data  type is: {DataType(byte_data[0])} because: {hexify(byte_data[:10])}")
+                return data_type
 
     current_row.add_data(retval_h, retval_s, retval_v)
-
     print(f"Basic data ({data_type.name}): hex:{retval_h}  <===> str:{retval_s}")
     return data_type
 
 
 def decode_struct(byte_data, current_row, depth=0):
-    # print(f">>> decode_struct() depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
+    data_type, noof_elements = whatsit(byte_data)
+    if data_type == DataType.HDLC:
+        current_row.get_parent().hdlc_end = byte_data
+        print(f"x123row now: {current_row}")
+        return DataType.HDLC
+
     retval_hex = hexify(byte_data[:2])
     retval_str = bytes_printable(byte_data[:2])
     current_row.add_data(retval_hex, retval_str, '')
-    _, noof_elements = whatsit(byte_data)
     del byte_data[:2]
-    print(f">>> decode_struct() {noof_elements} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
+
+    logit(f">>> decode_struct() {noof_elements} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
 
     for _ in range(noof_elements):
         next_data_type = extract_next_basic_data(byte_data, current_row)
+
         if next_data_type == DataType.STRUCTURE:
-            # retval_hex += hexify(byte_data[:2])
-            # retval_str += bytes_printable(byte_data[:2])
             del byte_data[:2]
             depth += 1
-            decode_struct(byte_data, current_row, depth=depth)
+            data_type = decode_struct(byte_data, current_row, depth=depth)
+            if data_type == DataType.HDLC:
+                logit("inner return")
+                current_row.get_parent().hdlc_end = byte_data
+                return DataType.HDLC
             depth -= 1
+        elif next_data_type == DataType.HDLC:
+            print("ENd of list: {byte_data}")
+            break
         else:
-            print(f"Just handled data of type: {next_data_type.name}")
+            logit(f"Just handled data of type: {next_data_type.name}")
 
-    print(f"<<<<< decode_struct() - depth:{depth}")
+    logit(f"<<<<< decode_struct() - depth:{depth}")
+    return None
 
 
-def decode_row(byte_data):
-    print(f">>> decode_row(): {hexify(byte_data, breakit=False)}....")
-    current_row = OneRecord()
+def decode_row(byte_data, current_row):
+    logit(f">>> decode_row(): {hexify(byte_data, breakit=False)}....")
     try:
-        retval_str = ""
         row_type, noof_elems = whatsit(byte_data)
-        print(f"it is a {row_type}, of {noof_elems} items")
+        logit(f"it is a {row_type}, of {noof_elems} items")
 
         if row_type == DataType.STRUCTURE:
             for j in range(noof_elems):
                 print(f"ROW number: {j}")
-                decode_struct(byte_data, current_row)
+                data_type = decode_struct(byte_data, current_row)
+                if data_type == DataType.HDLC:
+                    return current_row
                 j += 1
         elif row_type == DataType.UNKNOWN and len(byte_data) == 3 and byte_data[2] == 0x7e:
             # This is what is left when the last element of the last struct has been extracted
@@ -339,7 +379,6 @@ def decode_row(byte_data):
         else:
             print(f"Done: {hexify(byte_data)}")
 
-        print("2ROW/RESULT===>")
     except Exception as ee_ee:
         print("ROW/RESULT===>")
         print(f"Exception in main loop: {ee_ee}\n{ee_ee.__class__}")
