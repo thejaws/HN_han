@@ -11,8 +11,6 @@ from han_utils import get_now, hexify, printable_byte
 from hdlc import hdlc
 from reader import parse_data, read_data_from_serial_port
 
-# from hdlc import contains_full_message, extract_next_message
-
 # Revision history
 # ---------- -------------         ------------------------------------------
 # 2020-12-07 jaws         - v2    - Added rudimentary exception handling
@@ -24,12 +22,13 @@ from reader import parse_data, read_data_from_serial_port
 # 2022-11-21 jaws         - v2.15 - Started working on offline/dry-run capabilities
 # 2022-11-29 jaws         - v2.16 - Started working on added readability output
 # 2023-03-28 jaws         - v2.99 - Started working on added major restructuring
+# 2023-05-04 jaws         - v2.99 - Almost working
 
 # python -m serial.tools.list_ports -v
 
 # ----------------------------------------------------------------------------
 
-CURRENT_VERSION = "v2.99 - 2023-03-28"
+CURRENT_VERSION = "v3.00 - 2023-05-04"
 print(f"Elvia HAN tester version: {CURRENT_VERSION}")
 
 
@@ -79,30 +78,6 @@ rawlogfile_binary = open("rawlogfile_binary.txt", "ab")
 rawlogfile_bytes = open("rawlogfile_bytes", "a")
 
 
-obis = {
-    "1.0.1.7.0.255.": "Active power+(Q1+Q4)",
-    "1.0.2.7.0.255.": "Active power-(Q1+Q4)",
-    "1.0.3.7.0.255.": "Reactive power+ (Q1+Q2)",
-    "1.0.4.7.0.255.": "Reactive power- (Q1+Q2)",
-    "1.0.31.7.0.255.": "IL1",
-    "1.0.51.7.0.255.": "IL2",
-    "1.0.71.7.0.255.": "IL3",
-    "1.0.32.7.0.255.": "UL1",
-    "1.0.52.7.0.255.": "UL2",
-    "1.0.72.7.0.255.": "UL3",
-    "0.0.1.0.0.255.": "Clock",
-    "1.0.1.8.0.255.": "A+cumul",
-    "1.0.2.8.0.255.": "A-cumul",
-    "1.0.3.8.0.255.": "R+cumul",
-    "1.0.4.8.0.255.": "A-cumul",
-    "1.1.0.2.129.255.": "OBIS list version id",
-}
-
-
-# def oct_2_obis(oct):
-#     return obis.get(oct, "Unknown")
-
-
 def printable(byte_data):
     outs = "%03d :" % 0
     for index in range(len(byte_data)):
@@ -113,83 +88,6 @@ def printable(byte_data):
             s += "\n"
         outs += s
     return outs
-
-
-def decode(byte_data):
-    print("Decode....")
-    outs = hdlc(byte_data)
-    for ix in range(len(byte_data)):
-        s = " %02x" % (byte_data[ix])
-        if (ix + 1) % 20 == 0:
-            s += "\n"
-        outs += s
-    return outs
-
-
-# def print_byte_array(byte_data):
-#     outs = "%03d :" % 0
-#     for ix in range(len(byte_data)):
-#         pcand = chr(byte_data[ix])
-#         p = "/"
-#         if pcand in string.printable:
-#             p = pcand
-#             if p == "\t":
-#                 p = "TAB"
-#             if p == "\n":
-#                 p = "NLN"
-#             if p == "\r":
-#                 p = "CR"
-
-#         s = " 0x%02x [%3d] (%7s)" % (byte_data[ix], byte_data[ix], p)
-#         if (ix + 1) % 10 == 0:  # and ix < len(byte_data) - 10:
-#             s += "\n%3d :" % ix
-#         outs += s
-#     return outs
-
-
-# def read_bytes(given_bytes=0):
-#     num_bytes = 0
-#     while num_bytes <= given_bytes:
-#         num_bytes = serial_port.in_waiting
-#         # print "in_waiting: %d" % num_bytes
-#         if num_bytes <= given_bytes:
-#             time.sleep(1)
-#     serialString = serial_port.read(num_bytes)
-#     return bytearray(serialString)
-
-
-def log_ringbuffer(buf):
-    ringbuffer_log.write(get_now())
-    ringbuffer_log.write("\n")
-    ringbuffer_log.write(hexify(buf))
-    rawlogfile_bytes.write(hexify(buf))
-    ringbuffer_log.write("\n")
-
-
-# def read_data_from_serial_port(serial_port):
-#     ix = 0
-#     ringbuffer = []
-
-#     log_file.write(get_now())
-#     log_file.write("\n")
-#     log_file.write(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
-#     log_file.write("\n")
-#     # ---------------
-#     # The main loop
-#     # waiting for and processing input from the serial port
-#     # -----------------------------------------------------
-#     while True:
-#         ix += 1
-#         s = "sleeping %d \r" % ix
-#         print(s, end=" ")
-#         time.sleep(1)
-#         ix += 1
-#         if serial_port.in_waiting > 0:
-#             data = read_bytes(serial_port.in_waiting)
-#             rawlogfile_binary.write(data)
-#             ringbuffer.extend(data)
-#             log_ringbuffer(ringbuffer)
-#             parse_data(ringbuffer)
 
 
 def read_data_from_file(i_file):
@@ -207,11 +105,11 @@ if __name__ == "__main__":
     input_file = options["file_name"]
 
     comport = options.get("comport")
-    serial_port = get_comport(comport) if input_file is None or comport is None else None
+    com_port = get_comport(comport) if input_file is None or comport is None else None
     if input_file is not None:
         parse_data(read_data_from_file(input_file))
-    elif serial_port is not None:
-        read_data_from_serial_port(serial_port)
+    elif com_port is not None:
+        read_data_from_serial_port(com_port)
     else:
         print("No file given. No port available.\nquitting.\n")
 

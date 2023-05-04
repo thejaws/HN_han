@@ -6,43 +6,20 @@ import string
 def get_now():
     return f'{[datetime.datetime.now().strftime("%a, %d %B %Y %H:%M:%S")]}'
 
-# def get_bytes_as_string(ix, num_bytes, input):
-#     i = 0
-#     ret_string = ""
-#     while i < num_bytes:
-#         ret_string += f"{chr(input[ix + i])}"
-#         i += 1
-#     return ret_string
-
-# def get_simple_print_byte_array(byte_data):
-#     outs = ""
-#     for ix in range(len(byte_data)):
-#         s = " %02x" % (byte_data[ix])
-#         if (ix + 1) % 20 == 0:
-#             s += "\n"
-#         outs += s
-#     return outs
-
 
 def simple_print_byte_array(byte_data):
     outs = hexify(byte_data)
-    print(f" outs\n{outs}")
     readable_string = ""
     for index, string_part in enumerate(byte_data, start=1):
         if index % 20 == 0:
             readable_string += "\n"
         readable_string += "%-3s" % printable_byte(string_part)
 
-    print("=== readable ====")
-    print(readable_string)
-    print("^^^^^^^^^^^^^^^^^")
     return outs
 
 
 def printable_byte(one_byte):
-    # print("A")
     pcand = chr(one_byte)
-    # print(f"CNAD:{pcand}")
     return_printable = " . "
     if pcand in string.printable:
         return_printable = pcand
@@ -52,7 +29,6 @@ def printable_byte(one_byte):
             return_printable = " "
         if return_printable == "\r":
             return_printable = " "
-    # print(f"Returning: {return_printable}")
     return return_printable
 
 
@@ -66,7 +42,7 @@ def hexify(byte_data, breakit=False):
     return hex_string
 
 
-def bytes_printable(byte_data):
+def bytes_printable(byte_data, breakit=False):
     printable_string = ""
     for index, the_byte in enumerate(byte_data, start=1):
         if index % 20 == 0:
