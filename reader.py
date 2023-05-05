@@ -11,7 +11,7 @@ import sys
 import time
 
 from comport import get_comport
-from han_utils import hexify, simple_print_byte_array
+from han_utils import LogLevel, hexify, logit, simple_print_byte_array
 from hdlc import (after_hdlc, contains_full_message, extract_next_message,
                   hdlc, the_payload)
 
@@ -102,7 +102,7 @@ def parse_data(ringbuffer):
     outs2 = ""
     while contains_full_message(ringbuffer):
         next_message = extract_next_message(ringbuffer)
-        print(f"{hexify(next_message)}")
+        logit(f"{hexify(next_message)}", LogLevel.INFO)
         raw_data = simple_print_byte_array(next_message)
         decode_this_message = next_message.copy()
         outs2 = hdlc(decode_this_message)
@@ -127,9 +127,12 @@ def read_data_from_serial_port(com_port):
     while True:
         time.sleep(1)
         if com_port.in_waiting > 0:
-            data = read_bytes(com_port, com_port.in_waiting)
-            ringbuffer.extend(data)
-            parse_data(ringbuffer)
+            try:
+                data = read_bytes(com_port, com_port.in_waiting)
+                ringbuffer.extend(data)
+                parse_data(ringbuffer)
+            except IndexError as ix_e:
+                print(f"{ix_e}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,24 @@
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
 import datetime
 import string
+import sys
+from enum import Enum
+
+
+class LogLevel(Enum):
+    DEBUG = 3
+    INFO = 6
+    WARNING = 80
+    ERROR = 90
+    CRITICAL = 99
+    EXCEPTION = 101
+
+
+def logit(msg, lvl=LogLevel.DEBUG):
+    if lvl.value > LogLevel.INFO.value:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")
+        print(f"{lvl.name} {now}  ==:  {msg}")
+        sys.stdout.flush()
 
 
 def get_now():
@@ -23,11 +41,7 @@ def printable_byte(one_byte):
     return_printable = " . "
     if pcand in string.printable:
         return_printable = pcand
-        if return_printable == "\t":
-            return_printable = " "
-        if return_printable == " ":
-            return_printable = " "
-        if return_printable == "\r":
+        if return_printable in {"\t", " ", "\r", "\n", chr(0x0b)}:
             return_printable = " "
     return return_printable
 
@@ -45,7 +59,7 @@ def hexify(byte_data, breakit=False):
 def bytes_printable(byte_data, breakit=False):
     printable_string = ""
     for index, the_byte in enumerate(byte_data, start=1):
-        if index % 20 == 0:
+        if breakit and index % 20 == 0:
             printable_string += "\n"
         printable_string += "%-3s" % printable_byte(the_byte)
     return printable_string

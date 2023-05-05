@@ -1,28 +1,11 @@
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
 import contextlib
 import datetime
-import sys
 import traceback
 from enum import Enum
 from typing import Tuple
 
-from han_utils import bytes_printable, hexify
-
-
-class LogLevel(Enum):
-    DEBUG = 3
-    INFO = 6
-    WARNING = 80
-    ERROR = 90
-    CRITICAL = 99
-    EXCEPTION = 101
-
-
-def logit(msg, lvl=LogLevel.DEBUG):
-    if lvl.value >= LogLevel.INFO.value:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")
-        print(f"{lvl.name} {now}  ==:  {msg}")
-        sys.stdout.flush()
+from han_utils import LogLevel, bytes_printable, hexify, logit
 
 
 class DataType(Enum):
@@ -124,14 +107,13 @@ class OneList:
         return self.last_row
 
     def __str__(self) -> str:
-        header = f"\n\nList with {len(self.records)} records\n"
+        header = f"\nList with {len(self.records)} records\n"
         body = ""
-        i = 0
-        for r in self.records:
-            body += f"{i}: {r}\n"
-            i += 1
+        index = 0
+        for record in self.records:
+            body += "%3d: %s\n" % (index, record)  # f"{index}: {record}\n"
+            index += 1
         retval = header + body
-        retval += "\n======="
         return retval
 
 
@@ -149,7 +131,7 @@ class OneRecord:
         return self.parent
 
     def add_data(self, hex_string, ascii_string, value):
-        logit(f"OneRecord.add_data -> \n{hex_string}###{ascii_string}###{value}")
+        logit(f"OneRecord.add_data -> \n{hex_string}###{ascii_string}###{value}", lvl=LogLevel.DEBUG)
         self.hex += f"    {hex_string}"
         self.printable += f"    {ascii_string}"
         self.printable = self.printable.replace("\n", "")
@@ -179,8 +161,6 @@ def whatsit(data) -> Tuple[DataType, int]:
             noof_elements = data[1]
     except ValueError as value_error:
         pass
-        # print(f"GUESSING that it is not a known data type:\n{value_error}")
-        # print("XXX\n\nProbably end of List?")
 
     if complex_data_type == DataType.UNKNOWN and len(data) == 3 and data[2] == 0x7e:
         return DataType.HDLC, noof_elements
@@ -288,9 +268,8 @@ def the_payload(byte_data):
         current_list.add_row(the_row)
         logit(f"XXXXXXXX\n\nROW/record {row_num} is processed\n\n\n\n")
 
-    print("======================")
+    print(f"======= {datetime.datetime.now()} ===============")
     print(current_list)
-    print("======================")
     return "<Done."
 
 
@@ -300,6 +279,9 @@ def extract_visible_string(byte_data):
     # code, length, <length bytes of data> ==> length + 2
     hstr = hexify(byte_data[: length + 2])
     str_str = bytes_printable(byte_data[: length + 2])
+    print(str_str)
+    str_str = str_str.replace(' ', '')
+    print(str_str)
     del byte_data[: length + 2]
     return hstr, str_str, ''
 
@@ -309,7 +291,6 @@ def extract_octet_string(byte_data):
     _, length = whatsit(byte_data)
     # code, length, <length bytes of data> ==> length + 2
     hstr = hexify(byte_data[: length + 2])
-    # str_str = bytes_printable(byte_data[: length + 2])
     obis_bytes = byte_data[2:8]
     logit(f"obis_bytes: {hexify(obis_bytes)}")
     str_str = get_obis(obis_bytes)
@@ -486,10 +467,7 @@ def contains_full_message(byte_data):
         retval = False
         local_ix = 0
         count_7es = 0
-        # first_7e_ix = 0
-        # second_7e_ix = 0
         while local_ix < len(byte_data):
-            # print(f"{byte_data[local_ix]}, {hex(byte_data[local_ix])}")
             if byte_data[local_ix] == 0x7E:
                 count_7es += 1
                 if count_7es == 1:
@@ -564,15 +542,19 @@ def find_start(byte_data):
         else:
             throwing = byte_data.pop(0)
             print("Throwing: 0x%02x" % throwing)
+
+    print(f"Did not find a start in: {hexify(byte_data)}")
     return False
 
 
 def extract_next_message(byte_data):
     retval = []
+
+    start_located = False
     if byte_data[0] == 0x7E and byte_data[1] != 0x7E:
-        print(".")
+        pass
     else:
-        find_start(byte_data)
+        start_located = find_start(byte_data)
 
     the_count = 0
     with contextlib.suppress(Exception):
@@ -582,7 +564,7 @@ def extract_next_message(byte_data):
                 the_count += 1
 
             retval.append(the_byte)
-    print("Extracted message length: %d" % len(retval))
+    logit("Extracted message length: %d" % len(retval))
     print(f"List: {which_list(retval)}")
 
     return retval
