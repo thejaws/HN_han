@@ -5,6 +5,7 @@ import traceback
 from enum import Enum
 from typing import Tuple
 
+from aidon_date_time import obis_bytes_to_datetime
 from han_utils import LogLevel, bytes_printable, hexify, logit
 
 
@@ -113,8 +114,7 @@ class OneList:
         for record in self.records:
             body += "%3d: %s\n" % (index, record)  # f"{index}: {record}\n"
             index += 1
-        retval = header + body
-        return retval
+        return header + body
 
 
 class OneRecord:
@@ -123,6 +123,7 @@ class OneRecord:
         self.printable = ''
         self.decoded = ''
         self.parent = None
+        self.has_datetime = False
 
     def set_parent(self, parent):
         self.parent = parent
@@ -130,8 +131,12 @@ class OneRecord:
     def get_parent(self):
         return self.parent
 
-    def add_data(self, hex_string, ascii_string, value):
-        logit(f"OneRecord.add_data -> \n{hex_string}###{ascii_string}###{value}", lvl=LogLevel.DEBUG)
+    def add_data(self, hex_string, ascii_string, value, byte_data=None):
+        print(f"OneRecord.add_data -> \n{hex_string}###{ascii_string}###{value}", lvl=LogLevel.DEBUG)
+        clock_str = ''
+        if self.has_datetime and byte_data is not None and len(byte_data) >= 12 and byte_data[0] == 9 and byte_data[1] == 12:
+            # previous data was probably OBIS code for time, thus this is the actual time....
+            clock_str = obis_bytes_to_datetime(byte_data)
         self.hex += f"    {hex_string}"
         self.printable += f"    {ascii_string}"
         self.printable = self.printable.replace("\n", "")
@@ -279,9 +284,7 @@ def extract_visible_string(byte_data):
     # code, length, <length bytes of data> ==> length + 2
     hstr = hexify(byte_data[: length + 2])
     str_str = bytes_printable(byte_data[: length + 2])
-    print(str_str)
     str_str = str_str.replace(' ', '')
-    print(str_str)
     del byte_data[: length + 2]
     return hstr, str_str, ''
 
@@ -364,7 +367,7 @@ def extract_next_basic_data(byte_data, current_row):
                 logit(f"get_next_basic_data  type is: {DataType(byte_data[0])} because: {hexify(byte_data[:10])}")
                 return data_type
 
-    current_row.add_data(retval_h, retval_s, retval_v)
+    current_row.add_data(retval_h, retval_s, retval_v, byte_data=byte_data)
     logit(f"Basic data ({data_type.name}): hex:{retval_h}  <===> str:{retval_s}")
     return data_type
 
