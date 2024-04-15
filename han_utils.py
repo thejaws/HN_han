@@ -15,7 +15,7 @@ class LogLevel(Enum):
 
 
 def logit(msg, lvl=LogLevel.DEBUG):
-    if lvl.value > LogLevel.INFO.value:
+    if lvl.value > LogLevel.WARNING.value:
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")
         print(f"{lvl.name} {now}  ==:  {msg}")
         sys.stdout.flush()

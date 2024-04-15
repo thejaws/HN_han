@@ -132,12 +132,12 @@ class OneRecord:
         return self.parent
 
     def add_data(self, hex_string, ascii_string, value, byte_data=None):
-        print(">>>>> Add Data <<<<<")
+        logit(">>>>> Add Data <<<<<")
         bd = []
         if byte_data is not None:
             bd = byte_data
         logit(
-            f"OneRecord.add_data -> \nhxs: {hex_string}### asc: {ascii_string}###val: {value} id: {self.has_datetime}", lvl=LogLevel.WARNING)
+            f"OneRecord.add_data -> \n\thxs: {hex_string}### asc: {ascii_string}###val: {value} id: {self.has_datetime}", lvl=LogLevel.WARNING)
         logit(f"hasdate: {self.has_datetime}, bytes: {hexify(bd[:25])}", LogLevel.WARNING)
 
         clock_str = ''
@@ -365,7 +365,7 @@ def extract_next_basic_data(byte_data, current_row):
     match data_type:
         case DataType.OCTET_STRING:
             retval_h, retval_s, retval_v = extract_octet_string(byte_data)
-            print(f"octet string, bytes...{byte_data[:25]}")
+            logit(f"octet string, bytes...{byte_data[:25]}")
         case DataType.VISIBLE_STRING:
             retval_h, retval_s, retval_v = extract_visible_string(byte_data)
         case DataType.DOUBLE_LONG_UNSIGNED:
@@ -388,9 +388,9 @@ def extract_next_basic_data(byte_data, current_row):
                 return data_type
 
     if byte_data:
-        print(f"octet string, bytes...{byte_data[:25]}")
+        logit(f"octet string, bytes...{byte_data[:25]}")
     else:
-        print("No byte data")
+        logit("No byte data")
     current_row.add_data(retval_h, retval_s, retval_v, byte_data=byte_data)
     logit(f"Basic data ({data_type.name}): hex:{retval_h}  <===> str:{retval_s}")
     return data_type
