@@ -9,7 +9,7 @@ import sys
 from comport import get_comport
 from han_utils import get_now, hexify, printable_byte
 from hdlc import hdlc
-from reader import parse_data, read_data_from_serial_port
+from reader import parse_data, read_data_from_file, read_data_from_serial_port
 
 # Revision history
 # ---------- -------------         ------------------------------------------
@@ -90,22 +90,17 @@ def printable(byte_data):
     return outs
 
 
-def read_data_from_file(i_file):
-    """Read serial data from a text file."""
-    lines_of_data = open(i_file).read()
-    lines_of_data.replace(" ", "")
-    lines_of_data.replace("\n", "")
-    b = bytes.fromhex(lines_of_data)
-    return bytearray(b)
-
-
 if __name__ == "__main__":
     options = {}
     parse_command_line(options)
     input_file = options["file_name"]
+    com_port = ''
+    comport_path = options.get("comport")
+    print(f"INPUT file: {input_file}")
 
-    comport = options.get("comport")
-    com_port = get_comport(comport) if input_file is None or comport is None else None
+    if input_file is None:
+        com_port = get_comport(comport_path) if input_file is None or comport_path is None else None
+
     if input_file is not None:
         parse_data(read_data_from_file(input_file))
     elif com_port is not None:

@@ -4,9 +4,9 @@
     "editor.insertSpaces": true,
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-      "source.organizeImports": true
+      "source.organizeImports": "explicit"
     },
-    "editor.wordBasedSuggestions": true,
+    "editor.wordBasedSuggestions": "matchingDocuments",
     "gitlens.codeLens.symbolScopes": ["!Module"],
     "editor.formatOnType": true,
     "editor.defaultFormatter": "ms-python.autopep8",

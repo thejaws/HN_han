@@ -19,6 +19,15 @@ CURRENT_VERSION = "v2.16 - 2022-11-29"
 print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
 
 
+list2_file = open("list2.txt", "a")
+list3_file = open("list3.txt", "a")
+list1_file = open("list1.txt", "a")
+log_file = open("rawlog.txt", "a")
+ringbuffer_log = open("ringbuffer.txt", "a")
+rawlogfile_binary = open("rawlogfile_binary.txt", "ab")
+rawlogfile_bytes = open("rawlogfile_bytes", "a")
+
+
 def parse_command_line(options):
     options["file_name"] = None
     for a in sys.argv:
@@ -38,15 +47,6 @@ def parse_command_line(options):
         elif a != sys.argv[0]:
             print(f"Unknown argument: {a}")
             exit(0)
-
-
-list2_file = open("list2.txt", "a")
-list3_file = open("list3.txt", "a")
-list1_file = open("list1.txt", "a")
-log_file = open("rawlog.txt", "a")
-ringbuffer_log = open("ringbuffer.txt", "a")
-rawlogfile_binary = open("rawlogfile_binary.txt", "ab")
-rawlogfile_bytes = open("rawlogfile_bytes", "a")
 
 
 def get_now():
@@ -87,6 +87,8 @@ def read_bytes(com_port, given_bytes=0):
         if num_bytes <= given_bytes:
             time.sleep(1)
     serial_string = com_port.read(num_bytes)
+    # jaws
+    rawlogfile_binary.write(serial_string)
     return bytearray(serial_string)
 
 
@@ -96,20 +98,36 @@ def log_ringbuffer(buf):
     ringbuffer_log.write(hexify(buf))
     rawlogfile_bytes.write(hexify(buf))
     ringbuffer_log.write("\n")
+    # rawlogfile_binary.write(bytes(buf))
 
 
 def parse_data(ringbuffer):
     outs2 = ""
     while contains_full_message(ringbuffer):
         next_message = extract_next_message(ringbuffer)
-        logit(f"{hexify(next_message)}", LogLevel.INFO)
+        logit(f"{hexify(next_message)}", LogLevel.WARNING)
         raw_data = simple_print_byte_array(next_message)
         decode_this_message = next_message.copy()
         outs2 = hdlc(decode_this_message)
         outs2 += after_hdlc(decode_this_message)
         outs2 += the_payload(decode_this_message)
-        log_file.write(get_now())
-        log_file.write(raw_data)
+        log_ringbuffer(ringbuffer)
+
+
+def read_data_from_file(i_file):
+    """Read serial data from a text file."""
+    data = None
+    try:
+        lines_of_data = open(i_file).read()
+        lines_of_data.replace(" ", "")
+        lines_of_data.replace("\n", "")
+        data = bytes.fromhex(lines_of_data)
+    except UnicodeDecodeError as ude:
+        # maybe file is binary
+        data = open(i_file, 'rb').read()
+
+    byte_data = bytearray(data)
+    return byte_data
 
 
 def read_data_from_serial_port(com_port):

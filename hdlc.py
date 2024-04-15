@@ -132,12 +132,31 @@ class OneRecord:
         return self.parent
 
     def add_data(self, hex_string, ascii_string, value, byte_data=None):
-        print(f"OneRecord.add_data -> \n{hex_string}###{ascii_string}###{value}", lvl=LogLevel.DEBUG)
+        print(">>>>> Add Data <<<<<")
+        bd = []
+        if byte_data is not None:
+            bd = byte_data
+        logit(
+            f"OneRecord.add_data -> \nhxs: {hex_string}### asc: {ascii_string}###val: {value} id: {self.has_datetime}", lvl=LogLevel.WARNING)
+        logit(f"hasdate: {self.has_datetime}, bytes: {hexify(bd[:25])}", LogLevel.WARNING)
+
         clock_str = ''
         if self.has_datetime and byte_data is not None and len(byte_data) >= 12 and byte_data[0] == 9 and byte_data[1] == 12:
+            print("Extracting previuously detected clock")
             # previous data was probably OBIS code for time, thus this is the actual time....
             clock_str = obis_bytes_to_datetime(byte_data)
+            print(clock_str)
+
         self.hex += f"    {hex_string}"
+
+        if clock_str != '':
+            ascii_string = clock_str
+            value = clock_str
+
+        if "Clock" in ascii_string:
+            print("Found Clock")
+            self.has_datetime = True
+
         self.printable += f"    {ascii_string}"
         self.printable = self.printable.replace("\n", "")
         self.decoded += f" {value} "
@@ -346,6 +365,7 @@ def extract_next_basic_data(byte_data, current_row):
     match data_type:
         case DataType.OCTET_STRING:
             retval_h, retval_s, retval_v = extract_octet_string(byte_data)
+            print(f"octet string, bytes...{byte_data[:25]}")
         case DataType.VISIBLE_STRING:
             retval_h, retval_s, retval_v = extract_visible_string(byte_data)
         case DataType.DOUBLE_LONG_UNSIGNED:
@@ -367,6 +387,10 @@ def extract_next_basic_data(byte_data, current_row):
                 logit(f"get_next_basic_data  type is: {DataType(byte_data[0])} because: {hexify(byte_data[:10])}")
                 return data_type
 
+    if byte_data:
+        print(f"octet string, bytes...{byte_data[:25]}")
+    else:
+        print("No byte data")
     current_row.add_data(retval_h, retval_s, retval_v, byte_data=byte_data)
     logit(f"Basic data ({data_type.name}): hex:{retval_h}  <===> str:{retval_s}")
     return data_type
