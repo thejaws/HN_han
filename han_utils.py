@@ -50,9 +50,11 @@ def hexify(byte_data, breakit=False):
     hex_string = ""
     for index in range(len(byte_data)):
         byte_as_hex = " %02x" % (byte_data[index])
-        if breakit and (index + 1) % 20 == 0:
+        if breakit and (index + 1) % 40 == 0:
             byte_as_hex += "\n"
         hex_string += byte_as_hex
+        if breakit and (index > 1500):
+            return hex_string
     return hex_string
 
 
@@ -88,7 +90,7 @@ def find_start(byte_data):
     return False
 
 
-def contains_full_message(byte_data):
+def xcontains_full_message(byte_data):
     """
     See if the byte_data contains a complete list from meter.
     The lists start and end with 0x7e.

@@ -410,6 +410,7 @@ def decode_struct(byte_data, current_row, depth=0):
 
     logit(f">>> decode_struct() {noof_elements} elems, depth={depth} .>>>  {hexify(byte_data[:25], breakit=False)}")
 
+    print("ARE")
     for struct_part_no in range(noof_elements):
         logit(f"struct part: {struct_part_no}")
         next_data_type = extract_next_basic_data(byte_data, current_row)
@@ -435,25 +436,25 @@ def decode_struct(byte_data, current_row, depth=0):
 
 
 def decode_row(byte_data, current_row):
-    logit(f">>> decode_row(): {hexify(byte_data, breakit=False)}....")
+    # print(f">>> decode_row(): {hexify(byte_data, breakit=False)}....")
     try:
         row_type, noof_elems = whatsit(byte_data)
-        logit(f"it is a {row_type}, of {noof_elems} items")
+        print(f"it is a {row_type}, of {noof_elems} items")
 
         if row_type == DataType.STRUCTURE:
             for j in range(noof_elems):
-                logit(f">>>>>>   Starting on ROW part: {j}")
+                print(f">>>>>>   Starting on ROW part: {j}")
                 data_type = decode_struct(byte_data, current_row)
                 if data_type == DataType.HDLC or data_type is None:
                     return current_row
                 j += 1
-                logit(f">>>>>>   Finished on ROW part: {j}")
+                print(f">>>>>>   Finished on ROW part: {j}")
         elif row_type == DataType.UNKNOWN and len(byte_data) == 3 and byte_data[2] == 0x7e:
             # This is what is left when the last element of the last struct has been extracted
-            logit(f"End of list for: {hexify(byte_data)}")
+            print(f"End of list for: {hexify(byte_data)}")
             current_row.add_data(hexify(byte_data), 'hdlc', 'ending')
         else:
-            logit(f"Done: {hexify(byte_data)}")
+            print(f"Done: {hexify(byte_data)}")
 
     except Exception as ee_ee:
         print("ROW/RESULT===>")
@@ -474,7 +475,7 @@ def which_list(this_list):
         return "List 1"
 
 
-def contains_full_message(byte_data):
+def contains_full_message_old(byte_data):
     """
     See if the byte_data contains a complete list from meter.
 
@@ -510,6 +511,47 @@ def contains_full_message(byte_data):
             if count_7es >= 2:
                 retval = True
                 break
+
+        return retval
+    except Exception:
+        return False
+
+def contains_full_message(byte_data):
+    """
+    See if the byte_data contains a complete list from meter.
+
+    The lists start and end with 0x7e.
+
+    Parameters
+    ----------
+    byte_data : _type_
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    try:
+        retval = False
+        local_ix = 0
+        count_7es = 0
+        # print(f">>> FULL MSG?: \n{hexify(byte_data, breakit=True)}....")
+        while local_ix < len(byte_data):
+            if byte_data[local_ix] == 0x7E:
+                count_7es += 1
+                length_b1 = byte_data[local_ix + 1] & 0x0f
+                length_b2 = byte_data[local_ix + 2]
+                print("b1: %x b2: %x\n" % (length_b1, length_b2))
+                length_of_mess = (length_b1 << 8) + length_b2
+                print(f"\nLENGTH A\n>{length_of_mess}<\n\n")
+                if len(byte_data) < length_of_mess:
+                    return False
+                print(hexify(byte_data[0:length_of_mess+2]))
+                if (byte_data[length_of_mess+2]) == 0x7e:
+                    return True
+                
+            local_ix += 1
 
         return retval
     except Exception:
@@ -591,7 +633,7 @@ def extract_next_message(byte_data):
                 the_count += 1
 
             retval.append(the_byte)
-    logit("Extracted message length: %d" % len(retval))
+    print("Extracted message length: %d" % len(retval))
     print(f"List: {which_list(retval)}")
 
     return retval
