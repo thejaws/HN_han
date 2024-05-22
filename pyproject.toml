@@ -2,8 +2,7 @@
 name = "hn_han"
 version = "2.14.0"
 description = "Basic reading of information from Aidon HAN ports."
-authors = ["John Åsmund Westberg <thejaws@gmail.com>"]
-package-mode = false
+authors = ["John Asmund Westberg <thejaws@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
