@@ -474,48 +474,6 @@ def which_list(this_list):
         return "List 1"
 
 
-def contains_full_message_old(byte_data):
-    """
-    See if the byte_data contains a complete list from meter.
-
-    The lists start and end with 0x7e.
-
-    Parameters
-    ----------
-    byte_data : _type_
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    try:
-        retval = False
-        local_ix = 0
-        count_7es = 0
-        while local_ix < len(byte_data):
-            if byte_data[local_ix] == 0x7E:
-                count_7es += 1
-                if count_7es == 1:
-                    if byte_data[local_ix + 1] == 0x7E:
-                        # this was the border between an end and the start of the next message
-                        local_ix += 1
-                    # first_7e_ix = ix
-                else:
-                    count_7es += 1
-                    # second_7e_ix = ix
-
-            local_ix += 1
-            if count_7es >= 2:
-                retval = True
-                break
-
-        return retval
-    except Exception:
-        return False
-
-
 def contains_full_message(byte_data):
     """
     See if the byte_data contains a complete list from meter.
@@ -536,21 +494,22 @@ def contains_full_message(byte_data):
         retval = False
         local_ix = 0
         count_7es = 0
-        while local_ix < len(byte_data):
+        while local_ix < len(byte_data)-3:
             if byte_data[local_ix] == 0x7E:
                 count_7es += 1
-                length_b1 = byte_data[local_ix + 1] & 0x0f
-                length_b2 = byte_data[local_ix + 2]
-                length_of_mess = (length_b1 << 8) + length_b2
+                length_of_mess = to_msg_length(byte_data[local_ix:])
                 if len(byte_data) < length_of_mess:
+                    print("XX False")
                     return False
                 if (byte_data[length_of_mess+2]) == 0x7e:
+                    print("XX True")
                     return True
 
             local_ix += 1
 
         return retval
-    except Exception:
+    except Exception as e:
+        print(f"XX Exception False>> {e}")
         return False
 
 
@@ -589,7 +548,7 @@ def hdlc(byte_data):
     return retval
 
 
-def find_start(byte_data):
+def find_start_OLD(byte_data):
     """
     Remove everything from byte stream leading up to the first 0x7e.
 
@@ -612,50 +571,56 @@ def find_start(byte_data):
     print(f"Find start - Did not find a start in: {hexify(byte_data)}")
     return False
 
+def to_msg_length(byte_data):
+    try:
+        length_b1 = byte_data[1] & 0x0f
+        length_b2 = byte_data[2]
+        # print("b1: %x b2: %x\n" % (length_b1, length_b2))
+        length_of_mess = (length_b1 << 8) + length_b2
+        return length_of_mess
+    except Exception as e:
+        print(f"Too late in the game for XX: {e}")
+        return -1
 
-def extract_next_message_old(byte_data):
+def find_start(byte_data):
+    """
+    Remove everything from byte stream leading up to the first 0x7e.
 
-    retval = []
+    :param byte_data:
+    :return:
+    """
+    print("balle")
+    if len(byte_data) < 2:
+        return False
 
-    start_located = False
-    if byte_data[0] == 0x7E and byte_data[1] != 0x7E:
-        pass
-    else:
-        start_located = find_start(byte_data)
+    while len(byte_data) >= 2:
+        if byte_data[0] == 0x7E:
+            candidate_end_index = to_msg_length(byte_data) + 2
+            if byte_data[candidate_end_index] != 0x7e:
+                throwing = byte_data.pop(0)
+                print("Find start (a) - Throwing: 0x%02x" % throwing)
+            else:
+                return True
+        else:
+            throwing = byte_data.pop(0)
+            print("Find start (b) - Throwing: 0x%02x" % throwing)
 
-    length_b1 = byte_data[1] & 0x0f
-    length_b2 = byte_data[2]
-    print("b1: %x b2: %x\n" % (length_b1, length_b2))
-    length_of_mess = (length_b1 << 8) + length_b2
-    # print(f"Extract: {length_of_mess} bytes")
-    # print(f"Start located\n>>>{hexify(byte_data[0:length_of_mess+2], breakit=True)}")
-    the_count = 0
-    with contextlib.suppress(Exception):
-        while the_count < 2:
-            the_byte = byte_data.pop(0)
-            if the_byte == 0x7E:
-                the_count += 1
-
-            retval.append(the_byte)
-    print("Extracted message length: %d" % len(retval))
-    print(f"List: {which_list(retval)}")
-
-    return retval
+    print(f"Find start - Did not find a start in: {hexify(byte_data)}")
+    return False
 
 
 def extract_next_message(byte_data):
     retval = []
 
-    start_located = False
-    if byte_data[0] == 0x7E and byte_data[1] != 0x7E:
-        pass
-    else:
-        start_located = find_start(byte_data)
+    # start_located = False
+    # if byte_data[0] == 0x7E and byte_data[1] != 0x7E:
+    #     pass
+    # else:
+    #     start_located = find_start(byte_data)
 
-    length_b1 = byte_data[1] & 0x0f
-    length_b2 = byte_data[2]
-    # print("b1: %x b2: %x\n" % (length_b1, length_b2))
-    length_of_mess = (length_b1 << 8) + length_b2
+    find_start(byte_data)
+
+    length_of_mess = to_msg_length(byte_data)
     # print(f"Extract: {length_of_mess} bytes")
     # print(f"Start located\n>>>{hexify(byte_data[0:length_of_mess+2], breakit=True)}")
     ix = 0

@@ -28,7 +28,7 @@ from reader import parse_data, read_data_from_file, read_data_from_serial_port
 
 # ----------------------------------------------------------------------------
 
-CURRENT_VERSION = "v3.00 - 2023-05-04"
+CURRENT_VERSION = "v4.00 - 2024-05-23"
 print(f"Elvia HAN tester version: {CURRENT_VERSION}")
 
 

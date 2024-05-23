@@ -67,12 +67,14 @@ def bytes_printable(byte_data, breakit=False):
     return printable_string
 
 
-def find_start(byte_data):
+def find_start_old(byte_data):
     """
     Remove everything from byte stream leading up to the first 0x7e.
     :param byte_data:
     :return:
     """
+    print("ikke her")
+    sys.exit(-1)
     print("find start")
     if len(byte_data) < 2:
         return False

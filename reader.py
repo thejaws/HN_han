@@ -15,8 +15,7 @@ from han_utils import LogLevel, hexify, logit, simple_print_byte_array
 from hdlc import (after_hdlc, contains_full_message, extract_next_message,
                   hdlc, the_payload)
 
-CURRENT_VERSION = "v2.16 - 2022-11-29"
-print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
+# print(f"Hafslund&Elvia HAN tester version: {CURRENT_VERSION}")
 
 
 list2_file = open("list2.txt", "a")
@@ -31,22 +30,23 @@ rawlogfile_bytes = open("rawlogfile_bytes", "a")
 def parse_command_line(options):
     options["file_name"] = None
     for a in sys.argv:
-        if a == "--help":
-            _print_help()
-        elif a == "--version":
-            print(f"VERSION: {CURRENT_VERSION}")
-            exit(0)
-        elif a.startswith("--from-file="):
-            fname = re.search(r"--from-file=(.*)", a)[1]
-            if os.path.exists(fname):
-                print(f"File name is {fname}")
-                options["file_name"] = fname
-            else:
-                print(f"No such file: {fname}")
-                exit(0)
-        elif a != sys.argv[0]:
-            print(f"Unknown argument: {a}")
-            exit(0)
+        # if a == "--help":
+        #     _print_help()
+        # elif a == "--version":
+        #     print(f"VERSION: {CURRENT_VERSION}")
+        #     exit(0)
+        # elif a.startswith("--from-file="):
+        #     fname = re.search(r"--from-file=(.*)", a)[1]
+        #     if os.path.exists(fname):
+        #         print(f"File name is {fname}")
+        #         options["file_name"] = fname
+        #     else:
+        #         print(f"No such file: {fname}")
+        #         exit(0)
+        # elif a != sys.argv[0]:
+        #     print(f"Unknown argument: {a}")
+        #     exit(0)
+        print(a)
 
 
 def get_now():
@@ -106,12 +106,15 @@ def parse_data(ringbuffer):
     while contains_full_message(ringbuffer):
         next_message = extract_next_message(ringbuffer)
         logit(f"{hexify(next_message)}", LogLevel.WARNING)
-        raw_data = simple_print_byte_array(next_message)
+        # raw_data = simple_print_byte_array(next_message)
+        # print(raw_data)
         decode_this_message = next_message.copy()
         outs2 = hdlc(decode_this_message)
         outs2 += after_hdlc(decode_this_message)
         outs2 += the_payload(decode_this_message)
         log_ringbuffer(ringbuffer)
+    
+    print(f"REST OF BUFFER: {hexify(ringbuffer)}\n<<<<<")
 
 
 def read_data_from_file(i_file):

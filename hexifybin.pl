@@ -1,4 +1,5 @@
 use autodie;
+
 print(">> " . $ARGV[0]. "\n");
 my $infile  = $ARGV[0];
 my $outfile = $infile . "_decoded.txt";
