@@ -103,6 +103,7 @@ def log_ringbuffer(buf):
 
 def parse_data(ringbuffer):
     outs2 = ""
+    next_message = []
     while contains_full_message(ringbuffer):
         next_message = extract_next_message(ringbuffer)
         logit(f"{hexify(next_message)}", LogLevel.WARNING)
@@ -113,7 +114,7 @@ def parse_data(ringbuffer):
         outs2 += after_hdlc(decode_this_message)
         outs2 += the_payload(decode_this_message)
         log_ringbuffer(ringbuffer)
-    
+
     print(f"REST OF BUFFER: {hexify(ringbuffer)}\n<<<<<")
 
 

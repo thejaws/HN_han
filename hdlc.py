@@ -1,6 +1,7 @@
 # pylint: disable=consider-using-enumerate, missing-docstring, consider-using-f-string
 import contextlib
 import datetime
+import sys
 import traceback
 from enum import Enum
 from typing import Tuple
@@ -494,15 +495,15 @@ def contains_full_message(byte_data):
         retval = False
         local_ix = 0
         count_7es = 0
-        while local_ix < len(byte_data)-3:
+        while local_ix < len(byte_data):
             if byte_data[local_ix] == 0x7E:
                 count_7es += 1
                 length_of_mess = to_msg_length(byte_data[local_ix:])
                 if len(byte_data) < length_of_mess:
-                    print("XX False")
                     return False
-                if (byte_data[length_of_mess+2]) == 0x7e:
-                    print("XX True")
+                elif (byte_data[length_of_mess+1]) == 0x7e:
+                    # next_message = byte_data[0:length_of_mess+2]
+                    # print(f"Found complete message:\n{hexify(next_message)}")
                     return True
 
             local_ix += 1
@@ -510,6 +511,7 @@ def contains_full_message(byte_data):
         return retval
     except Exception as e:
         print(f"XX Exception False>> {e}")
+        traceback.print_exc(file=sys.stdout)
         return False
 
 
@@ -571,6 +573,7 @@ def find_start_OLD(byte_data):
     print(f"Find start - Did not find a start in: {hexify(byte_data)}")
     return False
 
+
 def to_msg_length(byte_data):
     try:
         length_b1 = byte_data[1] & 0x0f
@@ -582,6 +585,7 @@ def to_msg_length(byte_data):
         print(f"Too late in the game for XX: {e}")
         return -1
 
+
 def find_start(byte_data):
     """
     Remove everything from byte stream leading up to the first 0x7e.
@@ -589,24 +593,30 @@ def find_start(byte_data):
     :param byte_data:
     :return:
     """
-    print("balle")
     if len(byte_data) < 2:
         return False
 
-    while len(byte_data) >= 2:
-        if byte_data[0] == 0x7E:
-            candidate_end_index = to_msg_length(byte_data) + 2
-            if byte_data[candidate_end_index] != 0x7e:
-                throwing = byte_data.pop(0)
-                print("Find start (a) - Throwing: 0x%02x" % throwing)
+    try:
+        while len(byte_data) >= 2:
+            if byte_data[0] == 0x7E:
+                candidate_end_index = to_msg_length(byte_data) + 2
+                # print(f"In Find start {hexify(byte_data[0:candidate_end_index])}")
+                if byte_data[candidate_end_index-1] != 0x7e:
+                    throwing = byte_data.pop(0)
+                    print("Find start (a) - Throwing: 0x%02x" % throwing)
+                else:
+                    # print("find start return True")
+                    return True
             else:
-                return True
-        else:
-            throwing = byte_data.pop(0)
-            print("Find start (b) - Throwing: 0x%02x" % throwing)
+                throwing = byte_data.pop(0)
+                print("Find start (b) - Throwing: 0x%02x" % throwing)
 
-    print(f"Find start - Did not find a start in: {hexify(byte_data)}")
-    return False
+        print(f"Find start - Did not find a start in: {hexify(byte_data)}")
+        return False
+    except Exception as ee:
+        print("BYYYE")
+        print(ee)
+        traceback.print_exc(file=sys.stdout)
 
 
 def extract_next_message(byte_data):
