@@ -35,3 +35,4 @@ __pycache__/comport.cpython-310.pyc
 __pycache__/han_utils.cpython-310.pyc
 list1.txt
 list2.txt
+*_decoded.txt
